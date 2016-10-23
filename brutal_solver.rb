@@ -1,12 +1,8 @@
 require 'minitest/autorun'
 
 class Solver
-  def self.solve((gd, g), ps)
-    i = 0
-    i += 1 while g[i] == '_'
-    return true if i == g.size
-    puts g.chars.each_slice(gd).map(&:join), "\n"
-    puts ps
+  def self.solve((gd, g), ps, i = 0)
+    return g =~ /^_*$/ if i >= g.size
 
     ps.each_with_index.any? do |p, j|
       new_p = ps.dup
@@ -15,34 +11,34 @@ class Solver
       if (p[0] == g[i] && p[1] == g[i + 1])  # right
         new_g = g.dup
         new_g[i] = new_g[i + 1] = '_'
-        return true if solve([gd, new_g], new_p)
+        return true if solve([gd, new_g], new_p, i + 2)
       end
 
       if (p[0] == g[i] && p[1] == g[i + gd]) # down
         new_g = g.dup
         new_g[i] = new_g[i + gd] = '_'
-        return true if solve([gd, new_g], new_p)
+        return true if solve([gd, new_g], new_p, i + 1)
       end
 
       if (p[0] == g[i] && p[1] == g[i -  1]) # left
         new_g = g.dup
         new_g[i] = new_g[i - 1] = '_'
-        return true if solve([gd, new_g], new_p)
+        return true if solve([gd, new_g], new_p, i + 1)
       end
 
       if (p[0] == g[i] && p[1] == g[i - gd]) # up
         new_g = g.dup
         new_g[i] = new_g[i - gd] = '_'
-        return true if solve([gd, new_g], new_p)
+        return true if solve([gd, new_g], new_p, i + 1)
       end
     end
 
-    false
+    return solve([gd, g], ps, i + 1)
   end
 end
 
 class TestSolver < Minitest::Test
-  def test_solve_no_rotation
+  def test_no_rotation
     grid = <<~GRID.gsub("\n",'')
       TOXO
       TOXX
@@ -58,7 +54,7 @@ class TestSolver < Minitest::Test
     assert Solver.solve(grid, pieces)
   end
 
-  def test_solve_with_rotation
+  def test_with_rotation
     grid = <<~GRID.gsub("\n",'')
       TOX
       TOX
@@ -69,6 +65,13 @@ class TestSolver < Minitest::Test
     pieces << 'OX'
     pieces << 'TT'
     pieces << 'OX'
+
+    assert Solver.solve(grid, pieces)
+  end
+
+  def test_left_insert
+    grid = [3, 'TO']
+    pieces = ['OT']
 
     assert Solver.solve(grid, pieces)
   end
