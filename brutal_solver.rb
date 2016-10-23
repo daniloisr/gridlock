@@ -2,27 +2,34 @@ require 'minitest/autorun'
 require 'byebug'
 
 class Solver
+  # gd = grid dimension
+  # g = grid
+  # ps = pieces
+  # gi = grid index
+  # pd = piece dimension
   def self.solve((gd, g), ps, i = 0, pd = 2)
-    return solve([gd, g], ps, i + 1) if g[i] == '_'
     return g =~ /^_*$/ if i >= g.size
+    return solve([gd, g], ps, i + 1) if g[i] == '_'
+
+    rotations = [
+      [  1, i % gd != gd - 1], # right
+      [ gd, i + gd < g.size],  # down
+      [ -1, i % gd != 0],      # left
+      [-gd, i - gd > 0]        # up
+    ]
 
     ps.each_with_index.any? do |p, j|
-      new_p = ps.dup
-      new_p.delete_at(j)
+      new_ps = ps.dup
+      new_ps.delete_at(j)
 
-      checks =
-        [ i % gd != gd - 1, # right
-          i + gd < g.size,  # down
-          i % gd != 0,      # left
-          i - gd > 0]       # up
-      [1, gd, -1, -gd].each_with_index.any? do |r, ri| # rotation
-        next unless checks[ri]
+      rotations.each_with_index.any? do |(r, in_board), ri| # rotation
+        next unless in_board
 
         rotated = pd.times.map {|k| i + k * r }
         if pd.times.all? {|k| p[k] == g[rotated[k]] }
           new_g = g.dup
           rotated.each {|j| new_g[j] = '_' }
-          return true if solve([gd, new_g], new_p, i + 1)
+          return true if solve([gd, new_g], new_ps, i + 1)
         end
       end
     end
@@ -106,5 +113,20 @@ class TestSolver < Minitest::Test
     pieces << 'XO'
 
     refute Solver.solve(grid, pieces)
+  end
+
+  def test_2d_piece
+    grid = <<~GRID.gsub("\n",'')
+      TOXO
+      TOXX
+    GRID
+    grid = [4, grid]
+
+    pieces = []
+    pieces << 'TOT'
+    pieces << 'XOX'
+    pieces << 'OX'
+
+    assert Solver.solve(grid, pieces)
   end
 end
