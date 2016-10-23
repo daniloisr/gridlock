@@ -1,36 +1,29 @@
 require 'minitest/autorun'
+require 'byebug'
 
 class Solver
-  def self.solve((gd, g), ps, i = 0)
+  def self.solve((gd, g), ps, i = 0, pd = 2)
+    return solve([gd, g], ps, i + 1) if g[i] == '_'
     return g =~ /^_*$/ if i >= g.size
 
     ps.each_with_index.any? do |p, j|
       new_p = ps.dup
       new_p.delete_at(j)
 
-      if p[0] == g[i] && p[1] == g[i + 1] && i % gd != gd - 1  # right
-        new_g = g.dup
-        new_g[i] = new_g[i + 1] = '_'
-        return true if solve([gd, new_g], new_p, i + 2)
-      end
+      checks =
+        [ i % gd != gd - 1, # right
+          i + gd < g.size,  # down
+          i % gd != 0,      # left
+          i - gd > 0]       # up
+      [1, gd, -1, -gd].each_with_index.any? do |r, ri| # rotation
+        next unless checks[ri]
 
-      if p[0] == g[i] && p[1] == g[i + gd] && i + gd < g.size # down
-        # NOTE: (i + gd < g.size) is unecessary, because i + gd on the last row will be nil
-        new_g = g.dup
-        new_g[i] = new_g[i + gd] = '_'
-        return true if solve([gd, new_g], new_p, i + 1)
-      end
-
-      if p[0] == g[i] && p[1] == g[i -  1] && i % gd != 0 # left
-        new_g = g.dup
-        new_g[i] = new_g[i - 1] = '_'
-        return true if solve([gd, new_g], new_p, i + 1)
-      end
-
-      if p[0] == g[i] && p[1] == g[i - gd] && i - gd > 0 # up
-        new_g = g.dup
-        new_g[i] = new_g[i - gd] = '_'
-        return true if solve([gd, new_g], new_p, i + 1)
+        rotated = pd.times.map {|k| i + k * r }
+        if pd.times.all? {|k| p[k] == g[rotated[k]] }
+          new_g = g.dup
+          rotated.each {|j| new_g[j] = '_' }
+          return true if solve([gd, new_g], new_p, i + 1)
+        end
       end
     end
 
@@ -71,7 +64,7 @@ class TestSolver < Minitest::Test
   end
 
   def test_left_insert
-    grid = [3, 'TO']
+    grid = [2, 'TO']
     pieces = ['OT']
 
     assert Solver.solve(grid, pieces)
