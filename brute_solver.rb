@@ -7,37 +7,37 @@ class Solver
   # g = grid
   # ps = pieces
   # gi = grid index
-  def self.solve((gd, g), ps, i = 0, skipped_at = 0)
-    return if i - skipped_at > 2 * gd
+  def self.solve((gd, g), ps, i = 0)
     return g =~ /^_*$/ if i >= g.size
-    return solve([gd, g], ps, i + 1, skipped_at == i ? i + 1 : skipped_at) if g[i] == '_'
-    puts "grid: #{g}" if (t = Time.new) - @t > 0.3 && @t = t
+    return solve([gd, g], ps, i + 1) if g[i] == '_'
 
-    ps.
-      select {|(pd, p)| p[0] == g[i] }.
-      each_with_index.any? do |(pd, p), j|
-        new_ps = ps.dup
-        new_ps.delete_at(j)
+    skipped_at = g.slice(/^_*[^_]/).size - 1
+    return if i - skipped_at > gd + 1
 
-        4.times.any? do |ri| # rotation
-          rotated = []
-          fit = p.size.times.all? do |k|
-            next true if p[k] == '_'
-            a,b = ((k%pd + k/pd*1i) * 1i**ri).rect
-            rotated << gi = i + a + b*gd
+    ps.each_with_index.any? do |(pd, p), j|
+      next unless p[0] == g[i]
+      new_ps = ps.dup
+      new_ps.delete_at(j)
 
-            p[k] == g[gi] if (i%gd + a).between?(0, gd-1) && (i/gd + b).between?(0, g.size/gd)
-          end
+      4.times.any? do |ri| # rotation
+        rotated = []
+        fit = p.size.times.all? do |k|
+          next true if p[k] == '_'
+          a,b = ((k%pd + k/pd*1i) * 1i**ri).rect
+          rotated << gi = i + a + b*gd
 
-          if fit
-            new_g = g.dup
-            rotated.each {|j| new_g[j] = '_' }
-            return true if solve([gd, new_g], new_ps, i + 1, skipped_at == i ? i + 1 : skipped_at)
-          end
+          p[k] == g[gi] if (i%gd + a).between?(0, gd-1) && (i/gd + b).between?(0, g.size/gd)
+        end
+
+        if fit
+          new_g = g.dup
+          rotated.each {|j| new_g[j] = '_' }
+          return true if solve([gd, new_g], new_ps, i + 1)
         end
       end
+    end
 
-    solve([gd, g], ps, i + 1, skipped_at)
+    solve([gd, g], ps, i + 1)
   end
 end
 
@@ -146,7 +146,26 @@ class TestSolver < Minitest::Test
     assert Solver.solve(grid, pieces)
   end
 
-  def test_full_board
+  def test_mid_grid
+    grid = <<~GRID.gsub("\n",'')
+      TXOO
+      OTTX
+      XXOX
+    GRID
+    grid = [4, grid]
+
+    a = 'TXO'
+    b = 'OO'
+    c = 'TT'
+    d = 'XOX'
+    f = 'XX'
+
+    pieces = [f,d,a,c,b].map {|i| [2, i]}
+
+    assert Solver.solve(grid, pieces)
+  end
+
+  def test_real_case
     grid = <<~GRID.gsub("\n",'')
       TXOO
       OTTX
