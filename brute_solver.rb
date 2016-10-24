@@ -6,27 +6,22 @@ class Solver
   # g = grid
   # ps = pieces
   # gi = grid index
-  # pd = piece dimension
-  def self.solve((gd, g), ps, i = 0, pd = 2)
+  def self.solve((gd, g), ps, i = 0)
     return g =~ /^_*$/ if i >= g.size
     return solve([gd, g], ps, i + 1) if g[i] == '_'
 
-    rotations = [
-      [  1, i % gd != gd - 1], # right
-      [ gd, i + gd < g.size],  # down
-      [ -1, i % gd != 0],      # left
-      [-gd, i - gd > 0]        # up
-    ]
-
-    ps.each_with_index.any? do |p, j|
+    ps.each_with_index.any? do |(pd, p), j|
       new_ps = ps.dup
       new_ps.delete_at(j)
 
-      rotations.each_with_index.any? do |(r, in_board), ri| # rotation
-        next unless in_board
+      4.times.any? do |ri| # rotation
+        rotated = []
+        if p.size.times.all? { |k|
+          a,b = ((k%pd + k/pd*1i) * 1i**ri).rect
+          rotated << gi = i + a + b*gd
 
-        rotated = pd.times.map {|k| i + k * r }
-        if pd.times.all? {|k| p[k] == g[rotated[k]] }
+          p[k] == g[gi] if (i%gd + a).between?(0, gd-1) && (i/gd + b).between?(0, g.size/gd)
+        }
           new_g = g.dup
           rotated.each {|j| new_g[j] = '_' }
           return true if solve([gd, new_g], new_ps, i + 1)
@@ -47,10 +42,10 @@ class TestSolver < Minitest::Test
     grid = [4, grid]
 
     pieces = []
-    pieces << 'TO'
-    pieces << 'TO'
-    pieces << 'XX'
-    pieces << 'XO'
+    pieces << [2, 'TO']
+    pieces << [2, 'TO']
+    pieces << [2, 'XX']
+    pieces << [2, 'XO']
 
     assert Solver.solve(grid, pieces)
   end
@@ -63,16 +58,16 @@ class TestSolver < Minitest::Test
     grid = [3, grid]
 
     pieces = []
-    pieces << 'OX'
-    pieces << 'TT'
-    pieces << 'OX'
+    pieces << [2, 'OX']
+    pieces << [2, 'TT']
+    pieces << [2, 'OX']
 
     assert Solver.solve(grid, pieces)
   end
 
   def test_left_insert
     grid = [2, 'TO']
-    pieces = ['OT']
+    pieces = [[2, 'OT']]
 
     assert Solver.solve(grid, pieces)
   end
@@ -85,9 +80,9 @@ class TestSolver < Minitest::Test
     grid = [3, grid]
 
     pieces = []
-    pieces << 'OX'
-    pieces << 'TO'
-    pieces << 'TX'
+    pieces << [2, 'OX']
+    pieces << [2, 'TO']
+    pieces << [2, 'TX']
 
     refute Solver.solve(grid, pieces)
   end
@@ -101,21 +96,22 @@ class TestSolver < Minitest::Test
     grid = [2, grid]
 
     pieces = []
-    pieces << 'TX'
-    pieces << 'OX'
-    pieces << 'OX'
+    pieces << [2, 'TX']
+    pieces << [2, 'OX']
+    pieces << [2, 'OX']
 
     refute Solver.solve(grid, pieces)
 
     pieces = []
-    pieces << 'XT'
-    pieces << 'OX'
-    pieces << 'XO'
+    pieces << [2, 'XT']
+    pieces << [2, 'OX']
+    pieces << [2, 'XO']
 
     refute Solver.solve(grid, pieces)
   end
 
   def test_2d_piece
+    skip 'build rotation first'
     grid = <<~GRID.gsub("\n",'')
       TOXO
       TOXX
