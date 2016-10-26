@@ -2,19 +2,18 @@ require 'minitest/autorun'
 require 'byebug'
 
 class Solver
-  @t = Time.new
   # gd = grid dimension
   # g = grid
   # ps = pieces
   # gi = grid index
-  def self.solve((gd, g), ps, i = 0)
-    return g =~ /^_*$/ if i >= g.size
-    return solve([gd, g], ps, i + 1) if g[i] == '_'
+  def self.solve((gd, g), ps, i = 0, placed = [])
+    return [ps.empty?, ps.empty? ? placed : []] if i >= g.size
+    return solve([gd, g], ps, i + 1, placed) if g[i] == '_'
 
     skipped_at = g.slice(/^_*[^_]/).size - 1
-    return if i - skipped_at > gd + 1
+    return [false, []] if i - skipped_at > gd + 1
 
-    ps.each_with_index.any? do |(pd, p), j|
+    ps.each_with_index.any? do |(pd, name, p), j|
       next unless p[0] == g[i]
       new_ps = ps.dup
       new_ps.delete_at(j)
@@ -32,16 +31,25 @@ class Solver
         if fit
           new_g = g.dup
           rotated.each {|j| new_g[j] = '_' }
-          return true if solve([gd, new_g], new_ps, i + 1)
+
+          branch = solve([gd, new_g], new_ps, i + 1, [*placed, [i, name, ri]])
+          return branch if branch[0]
         end
       end
     end
 
-    solve([gd, g], ps, i + 1)
+    solve([gd, g], ps, i + 1, placed)
   end
 end
 
 class TestSolver < Minitest::Test
+  def test_single_piece
+    assert_equal Solver.solve([2, 'TO'], [[2, :a, 'TO']]), [true, [[0, :a, 0]]]
+    assert_equal Solver.solve([1, 'TO'], [[2, :a, 'TO']]), [true, [[0, :a, 1]]]
+    assert_equal Solver.solve([2, 'TO'], [[2, :a, 'OT']]), [true, [[1, :a, 2]]]
+    assert_equal Solver.solve([1, 'TO'], [[2, :a, 'OT']]), [true, [[1, :a, 3]]]
+  end
+
   def test_simple
     grid = <<~GRID.gsub("\n",'')
       TOXO
@@ -50,12 +58,13 @@ class TestSolver < Minitest::Test
     grid = [4, grid]
 
     pieces = []
-    pieces << [2, 'TO']
-    pieces << [2, 'TO']
-    pieces << [2, 'XX']
-    pieces << [2, 'XO']
+    pieces << [2, :a, 'TO']
+    pieces << [2, :a, 'TO']
+    pieces << [2, :b, 'XX']
+    pieces << [2, :c, 'XO']
 
-    assert Solver.solve(grid, pieces)
+    assert_equal Solver.solve(grid, pieces),
+      [true, [[0, :a, 0], [2, :b, 1], [4, :a, 0], [7, :c, 3]]]
   end
 
   def test_simple_rotation
