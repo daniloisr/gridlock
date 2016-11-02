@@ -1,5 +1,6 @@
 require 'minitest/autorun'
 require 'byebug'
+require 'pp'
 
 class Solver
   # gd = grid dimension
@@ -7,16 +8,15 @@ class Solver
   # ps = pieces
   # gi = grid index
   def self.solve((gd, g), ps, i = 0, placed = [])
-    return [ps.empty?, ps.empty? ? placed : []] if i >= g.size
+    all_placed = ps.all? {|(_, _, available)| !available }
+    return [all_placed, all_placed ? placed : []] if i >= g.size
     return solve([gd, g], ps, i + 1, placed) if g[i] == '_'
 
     skipped_at = g.slice(/^_*[^_]/).size - 1
     return [false, []] if i - skipped_at > gd + 1
 
-    ps.each_with_index.any? do |(pd, name, p), j|
-      next unless p[0] == g[i]
-      new_ps = ps.dup
-      new_ps.delete_at(j)
+    ps.each_with_index.any? do |(pd, p, available), j|
+      next if p[0] != g[i] || !available
 
       4.times.any? do |ri| # rotation
         rotated = []
@@ -31,9 +31,14 @@ class Solver
         if fit
           new_g = g.dup
           rotated.each {|j| new_g[j] = '_' }
+          ps[j][2] = false
 
-          branch = solve([gd, new_g], new_ps, i + 1, [*placed, [i, name, ri]])
-          return branch if branch[0]
+          branch = solve([gd, new_g], ps, i + 1, [*placed, [i, j, ri]])
+          if branch[0]
+            return branch
+          else
+            ps[j][2] = true
+          end
         end
       end
     end
@@ -44,10 +49,10 @@ end
 
 class TestSolver < Minitest::Test
   def test_single_piece
-    assert_equal Solver.solve([2, 'TO'], [[2, :a, 'TO']]), [true, [[0, :a, 0]]]
-    assert_equal Solver.solve([1, 'TO'], [[2, :a, 'TO']]), [true, [[0, :a, 1]]]
-    assert_equal Solver.solve([2, 'TO'], [[2, :a, 'OT']]), [true, [[1, :a, 2]]]
-    assert_equal Solver.solve([1, 'TO'], [[2, :a, 'OT']]), [true, [[1, :a, 3]]]
+    assert_equal Solver.solve([2, 'TO'], [[2, 'TO', true]]), [true, [[0, 0, 0]]]
+    assert_equal Solver.solve([1, 'TO'], [[2, 'TO', true]]), [true, [[0, 0, 1]]]
+    assert_equal Solver.solve([2, 'TO'], [[2, 'OT', true]]), [true, [[1, 0, 2]]]
+    assert_equal Solver.solve([1, 'TO'], [[2, 'OT', true]]), [true, [[1, 0, 3]]]
   end
 
   def test_simple
@@ -58,13 +63,13 @@ class TestSolver < Minitest::Test
     grid = [4, grid]
 
     pieces = []
-    pieces << [2, :a, 'TO']
-    pieces << [2, :a, 'TO']
-    pieces << [2, :b, 'XX']
-    pieces << [2, :c, 'XO']
+    pieces << [2, 'TO', true]
+    pieces << [2, 'TO', true]
+    pieces << [2, 'XX', true]
+    pieces << [2, 'XO', true]
 
     assert_equal Solver.solve(grid, pieces),
-      [true, [[0, :a, 0], [2, :b, 1], [4, :a, 0], [7, :c, 3]]]
+      [true, [[0, 0, 0], [2, 2, 1], [4, 1, 0], [7, 3, 3]]]
   end
 
   def test_simple_rotation
