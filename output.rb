@@ -1,56 +1,9 @@
-# http://ascii-table.com/ansi-escape-sequences.php
-# http://unix.stackexchange.com/questions/26576/how-to-delete-line-with-echo
-# ┌───┬───┬───┐
-# │ ✚ │ ■ │ ● │
-# ├───┼───┼───┤
-# │ ✚ │ ◼ │ ● │
-# └───┴───┴───┘
-
 require 'minitest/autorun'
 require 'byebug'
 require 'pp'
 
-# gd, g = [4, <<~GRID.gsub("\n",'')]
-#   TXOO
-#   OTTX
-#   XXOX
-# GRID
-
-# pieces = [2, :a, 'XO']
-# placed = [1, :a, 0]
-
-# map = <<~MAP.split("\n").map(&:split).to_h
-#   X ✚
-#   T ■
-#   O ●
-# MAP
-
-# -------------------------
-# puts ?┌ + (['───']*gd)*?─ + ?┐
-
-# g.chars.each_slice(gd).each_with_index do |cells, i|
-#   cells = cells.map{|i| map[i] }
-#   puts '│ ' + cells * '   ' + ' │'
-#   # puts ?┌ + (['───']*gd)*?┬ + ?┐
-#   puts ?│ + (['   ']*gd)*' ' + ?│ if g.size - i*gd > gd
-# end
-
-# puts ?└ + (['───']*gd)*?─ + ?┘
-
-# # ------------------
-# pieces = [2, :a, 'XO']
-# placed = [0, :a, 0]
-# r = g.size / gd + 1
-
-# p1, p2, p3 = placed
-# i,j = p1/gd, p1%gd
-# print "\e[#{(r - i) * 2 - 1}A\e[4C┌" + "\e[7C┐"
-# print "\e[B\e[9D│" + "\e[7C│"
-# print "\e[B\e[9D└"  + "─"*(4*2 -1) + "┘"
-# print "\e[10B\e[100C"
-
 class Grid
-  Cell = Struct.new(:symbol, :filled_with)
+  Cell = Struct.new(:board, :row, :column, :symbol)
 
   attr_reader :width, :height
 
@@ -64,11 +17,11 @@ class Grid
     @pieces = pieces
   end
 
-  def [](y, x)
-    if y.between?(0, @height - 1) && x.between?(0, @width - 1)
-      Cell.new(@cells[y * width + x])
-    else
-      Cell.new
+  def [](row, column)
+    Cell.new(self, row, column).tap do |cell|
+      if row.between?(0, @height - 1) && column.between?(0, @width - 1)
+        cell.symbol = @cells[row * width + column]
+      end
     end
   end
 end
@@ -76,93 +29,96 @@ end
 Piece = Board = Grid
 
 class Printer
+  class CellDecorator < SimpleDelegator
+    def nearby
+      @nearby ||= {
+        nw: board[row - 1, column - 1],
+        n:  board[row - 1, column],
+        w:  board[row, column - 1],
+        c:  board[row, column]
+      }
+    end
+
+    def unicode_symbol
+      symbol_map[symbol]
+    end
+
+    private
+
+    def symbol_map
+      {
+        nil => ' ',
+        '_' => ' ',
+        'X' => "\u271a",
+        'T' => "\u25a0",
+        'O' => "\u25cf",
+      }
+    end
+  end
+
+  class BoardDecorator < SimpleDelegator
+    def [](row, column)
+      CellDecorator.new(super(row, column))
+    end
+
+    def crossroads(row)
+      width.succ.times.map do |column|
+        self[row, column].nearby.values_at(:nw, :n, :w, :c)
+      end
+    end
+
+    def horizontal_intersecs(row)
+      width.times.map do |column|
+        self[row, column].nearby.values_at(:n, :n, :c, :c)
+      end
+    end
+
+    def vertical_intersecs(row)
+      width.succ.times.map do |column|
+        self[row, column].nearby.values_at(:w, :c, :w, :c)
+      end
+    end
+  end
+
   def initialize(board)
-    @board = board
+    @board = BoardDecorator.new(board)
   end
 
   def print
-    h, w = @board.height, @board.width
-    out = []
+    separators = @board.height.succ.times.map {|row| print_separator(row) }
+    cells = @board.height.times.map {|row| print_cells(row) }
 
-    h.times do |y|
-      out << print_separator(y, w).join
-      out << print_cells(y, w).join
-    end
-
-    out << print_separator(h, w).join
+    separators.zip(cells).flatten.compact
   end
 
-  def print_cells(y, w)
-    b = @board
+  private
 
-    out = w.times.flat_map do |x|
-      out = []
+  def print_separator(row)
+    crossroads = @board.crossroads(row).map(&method(:separator_for))
+    intersects =
+      @board.horizontal_intersecs(row)
+      .map(&method(:separator_for))
+      .map {|sep| sep * 3 }
 
-      cells =
-        [b[y, x-1], b[y, x],
-         b[y, x-1], b[y, x]].
-        map(&:symbol)
-
-      val = (1..3).
-        map {|i| cells.uniq.index(cells[i]) }.
-        join
-
-      out << separator_map[val]
-
-      out << ' ' + symbol_map[b[y, x].symbol] + ' '
-    end
-
-    cells =
-      [b[y, w-1], b[y, w],
-       b[y, w-1], b[y, w]].
-      map(&:symbol)
-
-    val = (1..3).
-      map {|i| cells.uniq.index(cells[i]) }.
-      join
-
-    out << separator_map[val]
+    crossroads.zip(intersects).flatten.compact.join
   end
 
-  def print_separator(y, w)
-    b = @board
-
-    out = w.times.flat_map do |x|
-      out = []
-
-      cells =
-        [b[y-1, x-1], b[y-1, x],
-         b[y  , x-1], b[y  , x]].
-        map(&:symbol)
-
-      val = (1..3).
-        map {|i| cells.uniq.index(cells[i]) }.
-        join
-
-      out << separator_map[val]
-
-      cells =
-        [b[y-1, x], b[y-1, x],
-         b[y  , x], b[y  , x]].
-        map(&:symbol)
-
-      val = (1..3).
-        map {|i| cells.uniq.index(cells[i]) }.
-        join
-
-      out << separator_map[val]*3
+  def print_cells(row)
+    intersects = @board.vertical_intersecs(row).map(&method(:separator_for))
+    cells = @board.width.times.map do |column|
+      " #{@board[row, column].unicode_symbol} "
     end
 
-    cells =
-      [b[y-1, w-1], b[y-1, w],
-       b[y  , w-1], b[y  , w]].
-      map(&:symbol)
+    intersects.zip(cells).flatten.compact.join
+  end
 
-    val = (1..3).
-      map {|i| cells.uniq.index(cells[i]) }.
+  def separator_for(intersect)
+    symbols = intersect.map(&:symbol)
+    key = symbols[1..3].
+      map {|sym| symbols.uniq.index(sym) }.
       join
 
-    out << separator_map[val]
+    separator_map[key]
   end
 
   def separator_map
@@ -184,26 +140,32 @@ class Printer
       '123' => "\u253c",
     }
   end
-
-  def symbol_map
-    {
-      nil => ' ',
-      '_' => ' ',
-      'X' => "\u271a",
-      'T' => "\u25a0",
-      'O' => "\u25cf",
-    }
-  end
 end
 
 class PrinterTest < Minitest::Test
   def test_print_single_cell
     board = Board.new(1, 'T')
+    printer = Printer.new(board)
+    expected = [
+      '┌───┐',
+      '│ ■ │',
+      '└───┘',
+    ]
 
-    assert Printer.new(board).print.join("\n") == <<~OUT.chomp
-      ┌───┐
-      │ ■ │
-      └───┘
-    OUT
+    assert_equal expected, printer.print
+  end
+
+  def test_print_multiple_cells
+    board = Board.new(3, 'TOOXTOXO')
+
+    assert Printer.new(board).print == [
+      '┌───┬───────┐',
+      '│ ■ │ ●   ● │',
+      '├───┼───┐   │',
+      '│ ✚ │ ■ │ ● │',
+      '│   ├───┼───┘',
+      '│ ✚ │ ● │    ',
+      '└───┴───┘    ',
+    ]
   end
 end
