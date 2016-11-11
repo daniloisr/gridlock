@@ -1,12 +1,16 @@
 require 'minitest/autorun'
 require 'solver'
+require 'byebug'
 
 class TestSolver < Minitest::Test
+  define_method :b, &Board.method(:new)
+  define_method :p, &Piece.method(:new)
+
   def test_single_piece
-    assert_equal Solver.solve([2, 'TO'], [[2, 'TO', true]]), [true, [[0, 0, 0]]]
-    assert_equal Solver.solve([1, 'TO'], [[2, 'TO', true]]), [true, [[0, 0, 1]]]
-    assert_equal Solver.solve([2, 'TO'], [[2, 'OT', true]]), [true, [[1, 0, 2]]]
-    assert_equal Solver.solve([1, 'TO'], [[2, 'OT', true]]), [true, [[1, 0, 3]]]
+    assert_equal [true, [[0, 0, 0]]], Solver.solve(b(2, 'TO'), [[2, 'TO', true]])
+    assert_equal [true, [[0, 0, 1]]], Solver.solve(b(1, 'TO'), [[2, 'TO', true]])
+    assert_equal [true, [[1, 0, 2]]], Solver.solve(b(2, 'TO'), [[2, 'OT', true]])
+    assert_equal [true, [[1, 0, 3]]], Solver.solve(b(1, 'TO'), [[2, 'OT', true]])
   end
 
   def test_simple

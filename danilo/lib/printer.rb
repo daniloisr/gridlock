@@ -28,40 +28,40 @@ class Printer
       'O' => "\u25cf",
     }
 
-    def nearby
-      @nearby ||= {
-        nw: grid[row - 1, column - 1],
-        n:  grid[row - 1, column],
-        w:  grid[row, column - 1],
-        c:  grid[row, column]
-      }
-    end
-
     def unicode_symbol
       SYMBOL_MAP[symbol]
     end
   end
 
   class BoardDecorator < SimpleDelegator
-    def [](row, column)
-      CellDecorator.new(super(row, column))
+    def nearby(row, column)
+      {
+        nw: self[row - 1, column - 1],
+        n:  self[row - 1, column],
+        w:  self[row, column - 1],
+        c:  self[row, column]
+      }
+    end
+
+    def [](*args)
+      CellDecorator.new(super(*args))
     end
 
     def crossroads(row)
       width.succ.times.map do |column|
-        self[row, column].nearby.values_at(:nw, :n, :w, :c)
+        nearby(row, column).values_at(:nw, :n, :w, :c)
       end
     end
 
     def horizontal_intersecs(row)
       width.times.map do |column|
-        self[row, column].nearby.values_at(:n, :n, :c, :c)
+        nearby(row, column).values_at(:n, :n, :c, :c)
       end
     end
 
     def vertical_intersecs(row)
       width.succ.times.map do |column|
-        self[row, column].nearby.values_at(:w, :c, :w, :c)
+        nearby(row, column).values_at(:w, :c, :w, :c)
       end
     end
   end

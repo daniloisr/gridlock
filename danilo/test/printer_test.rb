@@ -4,7 +4,6 @@ require 'printer'
 
 class PrinterTest < Minitest::Test
   def test_print_single_cell
-    byebug
     board = Board.new(1, 'T')
     printer = Printer.new(board)
     expected = [
