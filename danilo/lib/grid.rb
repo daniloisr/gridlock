@@ -1,12 +1,12 @@
 class Grid
   Cell = Struct.new(:symbol, :filled)
 
-  attr_reader :width, :height, :symbols
+  attr_reader :width, :height, :symbols, :cells
 
-  def initialize(width, symbols)
+  def initialize(width, symbols, height = nil)
     @width = width
-    @symbols = symbols
     @height = (symbols.size / width.to_f).ceil
+    @symbols = symbols
     @cells = {}
   end
 
@@ -18,6 +18,10 @@ class Grid
         cell.symbol = @symbols[row * width + column]
       end
     end
+  end
+
+  def initialize_copy(other)
+    @cells = {}
   end
 end
 
