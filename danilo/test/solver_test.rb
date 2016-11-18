@@ -16,12 +16,30 @@ class Solver
 
     def initialize(board)
       super(board)
-      @filled = Hash.new(false)
     end
 
     def filled?(index)
       cell = self[*index]
-      cell.symbol && @filled[index]
+      cell.symbol && cell.filled
+    end
+
+    def can_add?(index, piece)
+      piece.cells_index.all? do |piece_index|
+        board_index = (Vector[*index] + Vector[*piece_index])
+        match = piece[*piece_index].symbol == self[*board_index].symbol
+
+        !self[*board_index].filled && match
+      end
+    end
+
+    def add(index, piece)
+      dup.tap do |new_board|
+        piece.cells_index.each do |piece_index|
+          board_index = (Vector[*index] + Vector[*piece_index])
+          new_board[*board_index].filled = true
+          new_board[*board_index].filled_with = piece
+        end
+      end
     end
   end
 
@@ -39,16 +57,16 @@ class Solver
     end
 
     def [](x, y)
-      translated = rotate(x, y, @turns) - Vector[*@pivot]
+      translated = Vector[x, y] + Vector[*@pivot]
       super *translated.to_a
     end
 
     def rotations
-      init_rotations.each_with_index do |rotated, turns|
+      init_rotations.each_with_index do |rotation, turns|
         pivot = [0, 0]
         cells_index.map do |(x, y)|
           new_x, new_y = rotate(x, y, turns).to_a
-          rotated[new_x, new_y].symbol = self[x, y].symbol
+          rotation[new_x, new_y].symbol = self[x, y].symbol
 
           if self[x, y].symbol
             px, py = pivot
@@ -56,48 +74,48 @@ class Solver
           end
         end
 
-        rotated.pivot = pivot
+        rotation.pivot = pivot
       end
     end
 
-    def rotate(x, y, turns)
-      Vector[*(Complex(x, y) * (Complex(0, 1) ** turns)).rect]
-    end
-
     def cells_index
-      super.map {|index| rotate(*index, @turns) - Vector[*@pivot] }.map(&:to_a)
+      super.
+        map {|index| rotate(*index, @turns) - Vector[*@pivot] }.
+        map(&:to_a).
+        select {|index| self[*index].symbol }
     end
 
     private
 
     def init_rotations
       4.times.map do |turns|
-        new_width = turns.even? ? width : height
-        self.class.new(::Piece.new(new_width, symbols), self, turns)
+        self.class.new(::Piece.new(width, symbols), self, turns)
       end
+    end
+
+    def rotate(x, y, turns)
+      Vector[*(Complex(x, y) * (Complex(0, 1) ** turns)).rect]
     end
   end
 
   def self.solve(board, pieces)
-    board = BoardSolver.new(board)
-    pieces = pieces.map(&PieceSolver.method(:new))
+    board = Board.new(board)
+    pieces = pieces.map(&Piece.method(:new))
 
-    solve_recur(board, pieces, [], board.cells_index)
+    solve_recur(board, pieces, board.cells_index)
   end
 
-  private
+  def self.solve_recur(board, pieces, (index, *next_indexes))
+    return { solved: true, solution: board } if index.nil? || pieces.empty?
 
-  def self.solve_recur(board, pieces, (cur_index, *next_indexes))
-    return { solved: true, solution: board } if index_list.empty? || pieces.empty?
-
-    if board.filled?(cur_index)
+    if board.filled?(index)
       return solve_recur(board, pieces, next_indexes)
     end
 
     pieces.each do |piece|
       piece.rotations.each do |rotated|
-        if board.can_add?(cur_index, rotated)
-          recur_result = solve_recur(board.add(rotated), pieces - piece, next_indexes)
+        if board.can_add?(index, rotated)
+          recur_result = solve_recur(board.add(index, rotated), pieces - [piece], next_indexes)
           return recur_result if recur_result[:solved]
         end
       end
@@ -105,6 +123,8 @@ class Solver
 
     return { solved: false, solution: [] }
   end
+
+  private_class_method :solve_recur
 end
 
 class TestSolver < Minitest::Test
@@ -113,8 +133,50 @@ class TestSolver < Minitest::Test
 
   def test_rotation
     piece = Solver::Piece.new(Piece.new(2, 'abc'))
-    piece.rotations
-    byebug
+    to_h = -> (piece) {
+      piece.
+        cells_index.
+        select {|index| piece[*index].symbol }.
+        map {|index| [piece[*index].symbol.to_sym, index] }.
+        to_h
+    }
+
+    expected_rotations = [
+      { a: [0, 0], b: [0, 1], c: [1, 0] },
+      { a: [1, 0], b: [0, 0], c: [1, 1] },
+      { a: [1, 0], b: [1, -1], c: [0, 0] },
+      { a: [0, 1], b: [1, 1], c: [0, 0] },
+    ]
+
+    expected_rotations.each_with_index do |expected_rotation, turn|
+      assert_equal expected_rotation, to_h.(piece.rotations[turn]), "Rotation #{turn} failed"
+    end
+  end
+
+  def test_can_add
+    board = Solver::Board.new(Board.new(2, 'abba'))
+    piece = Solver::Piece.new(Piece.new(2, 'ab'))
+
+    assert board.can_add?([0, 0], piece)
+    refute board.can_add?([0, 1], piece)
+    assert board.can_add?([0, 0], piece.rotations[3])
+
+    piece = Solver::Piece.new(Piece.new(2, 'abb'))
+    assert board.can_add?([0, 0], piece)
+    refute board.can_add?([0, 1], piece)
+    assert board.can_add?([0, 1], piece.rotations[2])
+  end
+
+  def test_add
+    board = Solver::Board.new(Board.new(2, 'abba'))
+    piece = Solver::Piece.new(Piece.new(2, 'ab'))
+
+    new_board = board.add([0, 0], piece)
+    assert_equal [true, true, nil, nil], new_board.cells_index.map {|i| new_board[*i].filled }
+
+    piece = Solver::Piece.new(Piece.new(2, 'abb'))
+    new_board = board.add([0, 0], piece)
+    assert_equal [true, true, true, nil], new_board.cells_index.map {|i| new_board[*i].filled }
   end
 
   def test_single_piece

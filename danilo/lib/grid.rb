@@ -1,5 +1,5 @@
 class Grid
-  Cell = Struct.new(:symbol, :filled)
+  Cell = Struct.new(:symbol, :filled, :filled_with)
 
   attr_reader :width, :height, :symbols, :cells
 

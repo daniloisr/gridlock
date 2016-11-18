@@ -37,8 +37,8 @@ the board.
     # ]
 
     # Example 2
-    # .a b   _.a   _ _  .b _
-    #  _ _   _ b  .b a   a _
+    # .a b  .b _   _ _   _.a
+    #  _ _   a _  .b a   _ b
 
     piece = Piece.new(2, 'ab')
     piece.rotations[0]
@@ -93,7 +93,7 @@ the board.
 
         cindex.all {|index| board[index + bindex] == rotations[0][index] }
 
-### Solving the rotations[1].cells_index
+### Solving the 2x2 rotations[1].cells_index
 
      piece and turn 2:
         \: -1 0 1  | -1 0 1
@@ -112,4 +112,25 @@ the board.
     result = turned.cells_index - pivot
     result.cells_index: [a: (1,0), b: (1,-1), c: ( 0,0)]
 
-    rotated_piece[index] = piece[index - pivot]
+    rotated_piece[index] = piece[index + pivot]
+
+### Solving the 1x2 piece rotations[1].cells_index
+
+     piece and turn 1:
+        \: -1 0 1  | -1 0 1
+           ------- | ------
+       -1:         |    b
+        0:    a b  |    a
+        1:         |
+           ------- | ------
+    pivot:   (0,0) |  (-1,0)
+
+    piece.cells_index:  [a: (0,0), b: ( 0,1)]
+
+    turned.cells_index = rotate(piece.cells_index, turns)
+    turned.cells_index: [a: (0,0), b: (-1,0)]
+
+    result = turned.cells_index - pivot
+    result.cells_index: [a: (1,0), b: (0,0)]
+
+    rotated_piece[index] = piece[index + pivot]
