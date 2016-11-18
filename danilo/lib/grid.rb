@@ -21,7 +21,7 @@ class Grid
   end
 
   def initialize_copy(other)
-    @cells = {}
+    @cells = other.cells.dup
   end
 end
 
