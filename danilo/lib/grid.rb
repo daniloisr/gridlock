@@ -21,7 +21,7 @@ class Grid
   end
 
   def initialize_copy(other)
-    @cells = other.cells.dup
+    @cells = other.cells.map {|k,v| [k, v.dup] }.to_h
   end
 end
 

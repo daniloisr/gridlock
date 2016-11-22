@@ -92,16 +92,21 @@ class Printer
   def print_cells(row)
     intersects = @board.vertical_intersecs(row).map(&method(:separator_for))
     cells = @board.width.times.map do |column|
-      " #{@board[row, column].unicode_symbol} "
+      cell = @board[row, column]
+      if cell.filled_with && cell.filled_with != @board.__getobj__
+        " \e[32m#{cell.unicode_symbol}\e[0m "
+      else
+        " #{cell.unicode_symbol} "
+      end
     end
 
     intersects.zip(cells).flatten.compact.join
   end
 
   def separator_for(intersect)
-    symbols = intersect.map(&:symbol)
-    key = symbols[1..3].
-      map {|sym| symbols.uniq.index(sym) }.
+    pieces = intersect.map(&:filled_with)
+    key = pieces[1..3].
+      map {|piece| pieces.uniq.index(piece) }.
       join
 
     SEPARATOR_MAP[key]
