@@ -25,23 +25,4 @@ class Grid
   end
 end
 
-class Board < Grid
-  def skipped_at
-    @symbols.slice(/^_*[^_]/).size - 1
-  end
-end
-
-class Piece < Grid
-  def initialize(width, symbols, is_available = true)
-    super(width, symbols)
-    @is_available = true
-  end
-
-  def available?
-    @is_available
-  end
-
-  def use
-    @is_available = false
-  end
-end
+Board = Piece = Grid

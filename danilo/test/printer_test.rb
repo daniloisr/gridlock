@@ -11,7 +11,7 @@ class PrinterTest < Minitest::Test
     printer = Printer.new(board)
     expected = [
       '┌───┐',
-      '│ ■ │',
+      "│ \e[32m■\e[0m │",
       '└───┘',
     ]
 
@@ -27,15 +27,16 @@ class PrinterTest < Minitest::Test
     pieces << Piece.new(2, 'OOO')
     pieces << Piece.new(2, 'XX')
 
-    board = Solver.solve(board, pieces)[:solution]
+    board = Solver.solve(board, pieces)[:board]
 
+    # TODO: add a parameter to print without colors
     assert_equal Printer.new(board).print, [
       '┌───┬───────┐',
-      '│ ■ │ ●   ● │',
+      "│ \e[32m■\e[0m │ \e[32m●\e[0m   \e[32m●\e[0m │",
       '├───┼───┐   │',
-      '│ ✚ │ ■ │ ● │',
+      "│ \e[32m✚\e[0m │ \e[32m■\e[0m │ \e[32m●\e[0m │",
       '│   ├───┼───┘',
-      '│ ✚ │ ● │    ',
+      "│ \e[32m✚\e[0m │ \e[32m●\e[0m │    ",
       '└───┴───┘    ',
     ]
   end

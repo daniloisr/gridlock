@@ -1,8 +1,3 @@
-# New solver
-
-The goal is to remove the `board.skipped_at` method doing
-a up-down fill in the board.
-
 ## Rotations
 
 Each piece have 4 valids rotations, and each rotation have
