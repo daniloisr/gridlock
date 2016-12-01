@@ -57,6 +57,7 @@ pieces.size.times do |piece_num|
     piece[0,0].filled_with = piece
     piece[0,1].filled_with = piece
     piece[1,0].filled_with = piece unless piece[1,0].symbol.nil?
+
     lines = Printer.new(piece).print
     lines.each do |line|
       next if plines >= height
