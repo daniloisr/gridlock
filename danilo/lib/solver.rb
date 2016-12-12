@@ -1,28 +1,28 @@
+require 'point'
 require 'grid'
-require 'matrix'
 
 class Solver
   module CellsIndexCalculator
     def cells_index
-      height.times.flat_map {|h| width.times.map {|w| [h, w] } }
+      @board.height.times.flat_map {|h| width.times.map {|w| [h, w] } }
     end
   end
 
-  class Board < SimpleDelegator
+  class BoardSolver
     include CellsIndexCalculator
 
     def initialize(board)
-      super(board)
+      @board = board
     end
 
     def filled?(index)
-      cell = self[*index]
+      cell = @board[*index]
       cell.symbol && cell.filled
     end
 
     def can_add?(index, piece)
       piece.cells_index.all? do |piece_index|
-        board_index = (Vector[*index] + Vector[*piece_index])
+        board_index = (Point[*index] + Point[*piece_index])
         match = piece[*piece_index].symbol == self[*board_index].symbol
 
         !self[*board_index].filled && match
@@ -32,7 +32,7 @@ class Solver
     def add(index, piece)
       dup.tap do |new_board|
         piece.cells_index.each do |piece_index|
-          board_index = (Vector[*index] + Vector[*piece_index])
+          board_index = (Point[*index] + Point[*piece_index])
           new_board[*board_index].filled = true
           new_board[*board_index].filled_with = piece
         end
@@ -40,7 +40,7 @@ class Solver
     end
   end
 
-  class Piece < SimpleDelegator
+  class PieceSolver
     include CellsIndexCalculator
 
     attr_accessor :pivot, :root
@@ -54,7 +54,7 @@ class Solver
     end
 
     def [](x, y)
-      translated = Vector[x, y] + Vector[*@pivot]
+      translated = Point[x, y] + Point[*@pivot]
       super *translated.to_a
     end
 
@@ -77,7 +77,7 @@ class Solver
 
     def cells_index
       super.
-        map {|index| rotate(*index, @turns) - Vector[*@pivot] }.
+        map {|index| rotate(*index, @turns) - Point[*@pivot] }.
         map(&:to_a).
         select {|index| self[*index].symbol }
     end
@@ -98,12 +98,12 @@ class Solver
     end
 
     def rotate(x, y, turns)
-      Vector[*(Complex(x, y) * (Complex(0, 1) ** turns)).rect]
+      Point[*(Complex(x, y) * (Complex(0, 1) ** turns)).rect]
     end
   end
 
   def self.solve(board, pieces)
-    board = Board.new(board)
+    board = BoardSolver.new(board)
     pieces = pieces.map(&Piece.method(:new))
 
     solve_recur(board, pieces, board.cells_index)

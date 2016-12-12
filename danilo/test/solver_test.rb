@@ -7,6 +7,22 @@ class TestSolver < Minitest::Test
   define_method :b, &Board.method(:new)
   define_method :p, &Piece.method(:new)
 
+  def test_simple
+    grid = <<~GRID.gsub("\n",'')
+      TOXO
+      TOXX
+    GRID
+    board = b(4, symbols: grid)
+
+    pieces = []
+    pieces << p(2, symbols: 'TO')
+    pieces << p(2, symbols: 'TO')
+    pieces << p(2, symbols: 'XX')
+    pieces << p(2, symbols: 'XO')
+
+    assert Solver.solve(board, pieces)[:solved]
+  end
+
   def test_rotation
     piece = Solver::Piece.new(Piece.new(2, 'abc'))
     to_h = -> (piece) {
@@ -62,22 +78,6 @@ class TestSolver < Minitest::Test
     assert Solver.solve(b(1, 'TO'), [p(2, 'OT')])[:solved]
 
     refute Solver.solve(b(2, 'TO'), [p(2, 'TX')])[:solved]
-  end
-
-  def test_simple
-    grid = <<~GRID.gsub("\n",'')
-      TOXO
-      TOXX
-    GRID
-    board = b(4, grid)
-
-    pieces = []
-    pieces << p(2, 'TO')
-    pieces << p(2, 'TO')
-    pieces << p(2, 'XX')
-    pieces << p(2, 'XO')
-
-    assert Solver.solve(board, pieces)[:solved]
   end
 
   def test_simple_rotation
