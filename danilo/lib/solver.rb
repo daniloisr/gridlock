@@ -4,43 +4,44 @@ require 'grid'
 class Solver
   module CellsIndexCalculator
     def cells_index
-      @board.height.times.flat_map {|h| width.times.map {|w| [h, w] } }
+      (0...height).flat_map do |h|
+        Array.new(width) { |w| [h, w] }
+      end
     end
   end
 
-  class BoardSolver
+  class BoardSolver < SimpleDelegator
     include CellsIndexCalculator
 
     def initialize(board)
-      @board = board
+      super(board)
     end
 
     def filled?(index)
-      cell = @board[*index]
-      cell.symbol && cell.filled
+      c = cell *index
+      c.symbol && c.piece
     end
 
     def can_add?(index, piece)
       piece.cells_index.all? do |piece_index|
-        board_index = (Point[*index] + Point[*piece_index])
-        match = piece[*piece_index].symbol == self[*board_index].symbol
+        board_index = Point.new(*index) + Point.new(*piece_index)
+        match = piece.cell(*piece_index).symbol == cell(board_index.x, board_index.y).symbol
 
-        !self[*board_index].filled && match
+        !cell(board_index.x, board_index.y).piece && match
       end
     end
 
     def add(index, piece)
       dup.tap do |new_board|
         piece.cells_index.each do |piece_index|
-          board_index = (Point[*index] + Point[*piece_index])
-          new_board[*board_index].filled = true
-          new_board[*board_index].filled_with = piece
+          board_index = Point.new(*index) + Point.new(*piece_index)
+          new_board.cell(board_index.x, board_index.y).piece = piece
         end
       end
     end
   end
 
-  class PieceSolver
+  class PieceSolver < SimpleDelegator
     include CellsIndexCalculator
 
     attr_accessor :pivot, :root
@@ -53,21 +54,21 @@ class Solver
       @pivot = [0, 0]
     end
 
-    def [](x, y)
-      translated = Point[x, y] + Point[*@pivot]
-      super *translated.to_a
+    def cell(x, y)
+      translated = Point.new(x, y) + Point.new(*@pivot)
+      super translated.x, translated.y
     end
 
     def rotations
       init_rotations.each_with_index do |rotation, turns|
         pivot = [0, 0]
         cells_index.map do |(x, y)|
-          new_x, new_y = rotate(x, y, turns).to_a
-          rotation[new_x, new_y].symbol = self[x, y].symbol
+          point = rotate(x, y, turns)
+          rotation.cell(point.x, point.y).symbol = cell(x, y).symbol
 
-          if self[x, y].symbol
+          if cell(x, y).symbol
             px, py = pivot
-            pivot = [new_x, new_y] if new_x < px || (new_x <= px && new_y < py)
+            pivot = [point.x, point.y] if point.x < px || (point.x <= px && point.y < py)
           end
         end
 
@@ -76,35 +77,35 @@ class Solver
     end
 
     def cells_index
-      super.
-        map {|index| rotate(*index, @turns) - Point[*@pivot] }.
-        map(&:to_a).
-        select {|index| self[*index].symbol }
+      super
+        .map { |index| rotate(*index, @turns) - Point.new(*@pivot) }
+        .select { |point| cell(point.x, point.y).symbol }
+        .map { |point| [point.x, point.y] }
     end
 
     def to_s
       cells_index.map do |index|
         piece = self[*index]
-        format("%s(%s) t%s", piece.symbol, index * ?,, @turns)
+        format('%s(%s) t%s', piece.symbol, index * ',', @turns)
       end.join(', ')
     end
 
     private
 
     def init_rotations
-      4.times.map do |turns|
+      Array.new(4) do |turns|
         self.class.new(::Piece.new(width, symbols), self, turns)
       end
     end
 
     def rotate(x, y, turns)
-      Point[*(Complex(x, y) * (Complex(0, 1) ** turns)).rect]
+      Point.new(*(Complex(x, y) * (Complex(0, 1)**turns)).rect)
     end
   end
 
   def self.solve(board, pieces)
     board = BoardSolver.new(board)
-    pieces = pieces.map(&Piece.method(:new))
+    pieces = pieces.map(&PieceSolver.method(:new))
 
     solve_recur(board, pieces, board.cells_index)
   end
