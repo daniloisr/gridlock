@@ -6,7 +6,7 @@ require 'solver'
 class PrinterTest < Minitest::Test
   def test_print_single_cell
     board = Board.new(1, 'T')
-    board.cell(0, 0).piece = Piece.new(1, 'T')
+    board.cell(0, 0).id = Piece.new(1, 'T').id
 
     printer = Printer.new(board)
     expected = [
@@ -41,11 +41,11 @@ class PrinterTest < Minitest::Test
     # TODO: add a parameter to print without colors
     assert_equal Printer.new(board).print, [
       '┌───┬───────┐',
-      "│ ■ │ ●   ● │",
+      '│ ■ │ ●   ● │',
       '├───┼───┐   │',
-      "│ ✚ │ ■ │ ● │",
+      '│ ✚ │ ■ │ ● │',
       '│   ├───┼───┘',
-      "│ ✚ │ ● │    ",
+      '│ ✚ │ ● │    ',
       '└───┴───┘    '
     ]
   end

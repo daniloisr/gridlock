@@ -4,9 +4,8 @@ require 'grid'
 class Solver
   module CellsIndexCalculator
     def cells_index
-      (0...height).flat_map do |h|
-        Array.new(width) { |w| [h, w] }
-      end
+      (0...height)
+        .flat_map { |h| Array.new(width) { |w| Point.new h, w } }
     end
   end
 
@@ -18,24 +17,28 @@ class Solver
     end
 
     def filled?(index)
-      c = cell *index
-      c.symbol && c.piece
+      c = cell(index)
+      c.symbol && !c.piece_id.nil?
     end
 
     def can_add?(index, piece)
-      piece.cells_index.all? do |piece_index|
-        board_index = Point.new(*index) + Point.new(*piece_index)
-        match = piece.cell(*piece_index).symbol == cell(board_index.x, board_index.y).symbol
+      index = Point.new(index) if index.is_a?(Array)
 
-        !cell(board_index.x, board_index.y).piece && match
+      piece.cells_index.all? do |piece_index|
+        board_index = index + piece_index
+        match = piece.cell(piece_index).symbol == cell(board_index).symbol
+
+        cell(board_index).piece_id.nil? && match
       end
     end
 
     def add(index, piece)
-      dup.tap do |new_board|
+      index = Point.new(index) if index.is_a?(Array)
+
+      clone.tap do |new_board|
         piece.cells_index.each do |piece_index|
-          board_index = Point.new(*index) + Point.new(*piece_index)
-          new_board.cell(board_index.x, board_index.y).piece = piece
+          board_index = index + piece_index
+          new_board.cell(board_index).piece_id = piece.id
         end
       end
     end
@@ -44,33 +47,32 @@ class Solver
   class PieceSolver < SimpleDelegator
     include CellsIndexCalculator
 
-    attr_accessor :pivot, :root
+    attr_accessor :pivot, :root, :turns
 
     def initialize(piece, root = nil, turns = 0)
       super(piece)
 
-      @root = [root, piece].compact.first
+      @root = root || piece
       @turns = turns
-      @pivot = [0, 0]
+      @pivot = Point.new(0, 0)
     end
 
-    def cell(x, y)
-      translated = Point.new(x, y) + Point.new(*@pivot)
-      super translated.x, translated.y
+    def cell(*args)
+      point = args.size == 2 ? Point.new(*args) : args.first
+      super point + pivot
     end
 
     def rotations
       init_rotations.each_with_index do |rotation, turns|
-        pivot = [0, 0]
-        cells_index.map do |(x, y)|
-          point = rotate(x, y, turns)
-          rotation.cell(point.x, point.y).symbol = cell(x, y).symbol
+        pivot = Point.new(0, 0)
 
-          if cell(x, y).symbol
-            px, py = pivot
-            pivot = [point.x, point.y] if point.x < px || (point.x <= px && point.y < py)
+        cells_index
+          .each do |point|
+            rotated_point = point.rotate(turns)
+            rotation.cell(rotated_point).symbol = cell(point).symbol
+
+            pivot = rotated_point if cell(point).symbol && rotated_point < pivot
           end
-        end
 
         rotation.pivot = pivot
       end
@@ -78,28 +80,16 @@ class Solver
 
     def cells_index
       super
-        .map { |index| rotate(*index, @turns) - Point.new(*@pivot) }
-        .select { |point| cell(point.x, point.y).symbol }
-        .map { |point| [point.x, point.y] }
-    end
-
-    def to_s
-      cells_index.map do |index|
-        piece = self[*index]
-        format('%s(%s) t%s', piece.symbol, index * ',', @turns)
-      end.join(', ')
+        .map { |point| point.rotate(turns) - pivot }
+        .select { |point| cell(point).symbol }
     end
 
     private
 
     def init_rotations
       Array.new(4) do |turns|
-        self.class.new(::Piece.new(width, symbols), self, turns)
+        self.class.new(clone, self, turns)
       end
-    end
-
-    def rotate(x, y, turns)
-      Point.new(*(Complex(x, y) * (Complex(0, 1)**turns)).rect)
     end
   end
 
@@ -112,10 +102,7 @@ class Solver
 
   def self.solve_recur(board, pieces, (index, *next_indexes))
     return { solved: true, board: board } if index.nil? || pieces.empty?
-
-    if board.filled?(index)
-      return solve_recur(board, pieces, next_indexes)
-    end
+    return solve_recur(board, pieces, next_indexes) if board.filled?(index)
 
     pieces.each do |piece|
       piece.rotations.each do |rotated|
@@ -126,7 +113,7 @@ class Solver
       end
     end
 
-    return { solved: false, board: [] }
+    { solved: false, board: [] }
   end
 
   private_class_method :solve_recur

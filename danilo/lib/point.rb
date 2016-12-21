@@ -9,9 +9,8 @@ class Point
 
   attr_reader :x, :y
 
-  def initialize(x, y)
-    @x = x
-    @y = y
+  def initialize(*args)
+    @x, @y = args.flatten
   end
 
   def +(other)
@@ -39,5 +38,13 @@ class Point
 
   def hash
     [x, y].hash
+  end
+
+  def to_a
+    [x, y]
+  end
+
+  def rotate(turns)
+    self.class.new(*(Complex(x, y) * (Complex(0, 1)**turns)).rect)
   end
 end

@@ -99,7 +99,7 @@ class Printer
   end
 
   def print_cell(cell)
-    if @color && cell.piece && cell.piece != @board.__getobj__
+    if @color && cell.piece_id && cell.piece_id != @board.id
       " \e[32m#{cell.unicode_symbol}\e[0m "
     else
       " #{cell.unicode_symbol} "
@@ -107,10 +107,10 @@ class Printer
   end
 
   def separator_for(intersect)
-    pieces = intersect.map(&:piece)
+    ids = intersect.map(&:piece_id)
     key =
-      pieces[1..3]
-      .map { |piece| pieces.uniq.index(piece) }
+      ids[1..3]
+      .map { |id| ids.uniq.index(id) }
       .join
 
     SEPARATOR_MAP[key]

@@ -8,29 +8,29 @@ class TestSolver < Minitest::Test
   define_method :p, &Piece.method(:new)
 
   def test_simple
-    grid = <<~GRID.gsub("\n",'')
+    grid = <<~GRID.delete("\n")
       TOXO
       TOXX
     GRID
-    board = b(4, symbols: grid)
+    board = b(4, grid)
 
     pieces = []
-    pieces << p(2, symbols: 'TO')
-    pieces << p(2, symbols: 'TO')
-    pieces << p(2, symbols: 'XX')
-    pieces << p(2, symbols: 'XO')
+    pieces << p(2, 'TO')
+    pieces << p(2, 'TO')
+    pieces << p(2, 'XX')
+    pieces << p(2, 'XO')
 
     assert Solver.solve(board, pieces)[:solved]
   end
 
   def test_rotation
-    piece = Solver::Piece.new(Piece.new(2, 'abc'))
+    piece = Solver::PieceSolver.new(Piece.new(2, 'abc'))
     to_h = -> (piece) {
-      piece.
-        cells_index.
-        select {|index| piece[*index].symbol }.
-        map {|index| [piece[*index].symbol.to_sym, index] }.
-        to_h
+      piece
+        .cells_index
+        .select { |index| piece.cell(index).symbol }
+        .map { |index| [piece.cell(index).symbol.to_sym, index.to_a] }
+        .to_h
     }
 
     expected_rotations = [
@@ -46,29 +46,29 @@ class TestSolver < Minitest::Test
   end
 
   def test_can_add
-    board = Solver::Board.new(Board.new(2, 'abba'))
-    piece = Solver::Piece.new(Piece.new(2, 'ab'))
+    board = Solver::BoardSolver.new(Board.new(2, 'abba'))
+    piece = Solver::PieceSolver.new(Piece.new(2, 'ab'))
 
     assert board.can_add?([0, 0], piece)
     refute board.can_add?([0, 1], piece)
     assert board.can_add?([0, 0], piece.rotations[3])
 
-    piece = Solver::Piece.new(Piece.new(2, 'abb'))
+    piece = Solver::PieceSolver.new(Piece.new(2, 'abb'))
     assert board.can_add?([0, 0], piece)
     refute board.can_add?([0, 1], piece)
     assert board.can_add?([0, 1], piece.rotations[2])
   end
 
   def test_add
-    board = Solver::Board.new(Board.new(2, 'abba'))
-    piece = Solver::Piece.new(Piece.new(2, 'ab'))
+    board = Solver::BoardSolver.new(Board.new(2, 'abba'))
+    piece = Solver::PieceSolver.new(Piece.new(2, 'ab'))
 
     new_board = board.add([0, 0], piece)
-    assert_equal [true, true, nil, nil], new_board.cells_index.map {|i| new_board[*i].filled }
+    assert_equal [true, true, false, false], new_board.cells_index.map {|i| new_board.cell(i).piece_id == piece.id }
 
-    piece = Solver::Piece.new(Piece.new(2, 'abb'))
+    piece = Solver::PieceSolver.new(Piece.new(2, 'abb'))
     new_board = board.add([0, 0], piece)
-    assert_equal [true, true, true, nil], new_board.cells_index.map {|i| new_board[*i].filled }
+    assert_equal [true, true, true, false], new_board.cells_index.map {|i| new_board.cell(i).piece_id == piece.id }
   end
 
   def test_single_piece
@@ -130,9 +130,7 @@ class TestSolver < Minitest::Test
     pieces << p(2, 'OX')
     pieces << p(2, 'OX')
 
-    # byebug
     refute Solver.solve(board, pieces)[:solved]
-    return
 
     pieces = []
     pieces << p(2, 'XT')
@@ -146,7 +144,7 @@ class TestSolver < Minitest::Test
     grid = b(2, 'TOT')
     pieces = [p(2, 'TOT')]
 
-    assert Solver.solve(grid, pieces)
+    assert Solver.solve(grid, pieces)[:solved]
   end
 
   def test_2d_pieces
@@ -161,7 +159,7 @@ class TestSolver < Minitest::Test
     pieces << p(2, 'OXX')
     pieces << p(2,  'OX')
 
-    assert Solver.solve(board, pieces)
+    assert Solver.solve(board, pieces)[:solved]
   end
 
   def test_mid_grid
@@ -180,7 +178,7 @@ class TestSolver < Minitest::Test
 
     pieces = [f,d,a,c,b].map {|i| p(2, i)}
 
-    assert Solver.solve(board, pieces)
+    assert Solver.solve(board, pieces)[:solved]
   end
 
   def test_real_case
@@ -207,7 +205,7 @@ class TestSolver < Minitest::Test
 
     pieces = [a,a,b,b,c,c,d,f,g,i,j,k].map {|i| p(2, i)}
 
-    assert Solver.solve(board, pieces)
+    assert Solver.solve(board, pieces)[:solved]
   end
 end
 

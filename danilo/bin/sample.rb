@@ -1,6 +1,7 @@
 require 'grid'
 require 'solver'
 require 'printer'
+require 'byebug'
 
 grid = <<~GRID.gsub("\n",'')
   TXOO
@@ -27,7 +28,9 @@ pieces = [a,a,b,b,c,c,d,f,g,i,j,k].map {|i| Piece.new(2, i)}
 puts "solving game 'AABBCCDFGIJK' ..."
 
 # Warning: GOHORSE code bellow
-solution = Solver.solve(board, pieces)
+solution = Marshal.load(File.read('solution.marshal'))
+# solution = Solver.solve(board, pieces)
+# File.open('solution.marshal', 'w') { |f| f.puts Marshal.dump(solution) }
 board = solution[:board]
 pieces = solution[:pieces]
 blines = Printer.new(board).print
@@ -36,15 +39,14 @@ width = 19
 pieces = pieces.shuffle
 
 pieces.size.times do |piece_num|
-  new_board = board.dup
+  new_board = board.clone
   new_board.cells.each do |_,c|
-    next if c.filled_with.nil?
-    unless pieces.take(piece_num + 1).include?(c.filled_with.root)
-      c.filled_with = nil
-    end
+    next unless c.piece_id
+
+    c.piece_id = nil unless pieces.take(piece_num + 1).map(&:id).include?(c.piece_id)
   end
 
-  blines = Printer.new(new_board).print
+  blines = Printer.new(new_board, color: true).print
   blines.each do |line|
     puts line
   end
@@ -53,10 +55,10 @@ pieces.size.times do |piece_num|
 
   plines = 0
   pieces.take(piece_num + 1).reverse.each_with_index do |piece, index|
-    piece = piece.dup
-    piece[0,0].filled_with = piece
-    piece[0,1].filled_with = piece
-    piece[1,0].filled_with = piece unless piece[1,0].symbol.nil?
+    piece = piece.clone
+    piece.cell(0,0).piece_id = piece.id
+    piece.cell(0,1).piece_id = piece.id
+    piece.cell(1,0).piece_id = piece.id unless piece.cell(1,0).symbol.nil?
 
     lines = Printer.new(piece).print
     lines.each do |line|
