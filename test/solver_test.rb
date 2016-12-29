@@ -1,6 +1,6 @@
 require 'minitest/autorun'
 require 'grid'
-require 'solver'
+require 'solver/naive'
 require 'byebug'
 
 class TestSolver < Minitest::Test

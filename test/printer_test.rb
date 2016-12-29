@@ -1,7 +1,7 @@
 require 'byebug'
 require 'minitest/autorun'
 require 'printer'
-require 'solver'
+require 'solver/naive'
 
 class PrinterTest < Minitest::Test
   def test_print_single_cell
