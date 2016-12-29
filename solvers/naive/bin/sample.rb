@@ -1,5 +1,5 @@
 require 'grid'
-require 'solver/naive'
+require 'solver'
 require 'printer'
 require 'byebug'
 

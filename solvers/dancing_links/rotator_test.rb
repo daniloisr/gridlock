@@ -1,6 +1,11 @@
 require 'minitest/autorun'
+require 'rotate'
 
 class RotateTest < Minitest::Test
+  def rotate(*args)
+    Rotator.rotate(*args)
+  end
+
   def test_rotate_2x1
     piece = [2, 'ab']
 
@@ -24,30 +29,5 @@ class RotateTest < Minitest::Test
     assert_equal [2, 'b_ac'], rotate(piece, 1)
     assert_equal [2, '_cba'], rotate(piece, 2)
     assert_equal [2, 'ca_b'], rotate(piece, 3)
-  end
-
-  def rotate((width, piece_body), turns = 1)
-    height = piece_body.size / width
-    result = Array.new([height, width].max ** 2)
-    new_width, translate_index =
-      [
-        [width,  [0, 0]],
-        [height, [0, width]],
-        [width,  [height, width]],
-        [height, [height, 0]]
-      ][turns]
-
-    translate = Complex(*translate_index)
-
-    for i in 0...height
-      for j in 0...width
-        rotated = (Complex(i, j) - translate) * 1i ** turns
-        index = rotated.real * width + rotated.imaginary
-
-        result[index] = piece_body[i * width + j] || _
-      end
-    end
-
-    [new_width, result.join]
   end
 end
