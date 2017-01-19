@@ -1,83 +1,58 @@
 require 'byebug'
 require 'rotator'
-require 'ostruct'
 
-# attributes
-# :left, :right, :up, :down, :column, :size, :name, :piece
-MatrixCell = Class.new(OpenStruct)
-Piece = Class.new(OpenStruct)
-Body = Class.new(OpenStruct) do
-  def fit_positions
-    [[1]]
-  end
-end
-
-board = Body.new d: 2, body: 'txxx'
-pieces = [[2, 'tx'], [2, 'xx']]
-
-header = prev = MatrixCell.new
-headers = []
-
-# setup columns
-for i in 0..1 do
-  for j in 0..1 do
-    cell = MatrixCell.new
-    headers << cell
-
-    prev.right = cell
-    cell.left = prev
-    prev = cell
-
-    cell.up = cell.down = cell
-
-    cell.size = 0
-    cell.name = board.body[i * 2 + j]
+class DoublyLinkedList
+  attr_accessor :val, :lt, :rt
+  def initialize(val, lt: self, rt: self)
+    @val = val
+    @lt = lt
+    @rt = rt
   end
 
-  prev.right = header
-  header.left = prev
-end
+  def add(item)
+    item.rt = self
+    item.lt = self.lt
 
-pieces = pieces.map { |p| Piece.new el: p, cells: [] }
-pieces.each do |piece|
-  rotator = Rotator.new(piece.p)
+    self.lt.rt = item
+    self.lt = item
+  end
 
-  rotator.rotations.each do |rotation|
-    positions = board.fit_positions(piece)
-    prev = nil
+  def to_a
+    buf = [self]
+    item = self.rt
 
-    positions.each do |position|
-      cell = MatrixCell.new piece: piece
-
-      if prev
-        cell.left = prev
-        cell.rigth = prev.right
-        prev.right.left = cell
-        prev.right = cell
-      end
-
-      header = headers[position]
-      cell.down = header
-      cell.up = header.up
-      header.up = cell
-      header.up.down = cell
-
-      piece.cells << cell
-      prev = cell
+    while item != self
+      buf << item
+      item = item.rt
     end
+
+    buf
   end
 end
 
-byebug;1
+board = 'TXOX'
+header = DoublyLinkedList.new(board[0])
 
-# T X
-# X X
+board[1..-1].chars.each do |cell|
+  new_cell = DoublyLinkedList.new(cell)
+  header.add(new_cell)
+end
+
+puts header.to_a.map(&:val).join
+
+# # Board:
+#     T X
+#     X X
 #
-# Solutiom matrix for pieces TX and XX
-# T X X X Header
-# ------- TX
-# 1 1 0 0
-# 1 0 1 0
-# ------- XX
-# 0 1 0 1
-# 0 0 1 1
+# # Pieces
+#     [T X], [X X]
+#
+# # Solutiom Matrix
+#
+#     T X X X Header
+#     ------- TX
+#     1 1 0 0
+#     1 0 1 0
+#     ------- XX
+#     0 1 0 1
+#     0 0 1 1

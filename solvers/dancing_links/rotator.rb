@@ -24,11 +24,11 @@ class Rotator
     [new_width, result.join]
   end
 
-  def initializer(piece)
+  def initialize(piece)
     @piece = piece
   end
 
   def rotations
-    Array.new(4).map { |turn| self.class.rotate(piece.el, turn) }
+    Array.new(4) { |turn| self.class.rotate(@piece, turn) }
   end
 end
