@@ -1,6 +1,6 @@
 ## Rotations
 
-Each piece have 4 valids rotations, and each rotation have
+Each piece have 4 valid rotations, and each rotation have
 a pivot that is used to try filling the rotated piece in
 the board.
 
@@ -83,7 +83,7 @@ the board.
           _a_b.b
           _c c c
 
-        cindex = rotations[1].cells_index:       # STUCKED HERE
+        cindex = rotations[1].cells_index:
           [b: [0, 0], c: [1, -1], c: [1, 0]]
 
         cindex.all {|index| board[index + bindex] == rotations[0][index] }
