@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require 'rotate'
+require 'rotator'
 
 class RotateTest < Minitest::Test
   def rotate(*args)
@@ -22,8 +22,7 @@ class RotateTest < Minitest::Test
     assert_equal [2, 'cadb'], rotate(piece, 3)
   end
 
-  def test_rotate_2x2_L_shape
-    piece = [2, 'abcd']
+  def test_rotate_2x2_j_shape
     piece = [2, 'abc_']
 
     assert_equal [2, 'b_ac'], rotate(piece, 1)
