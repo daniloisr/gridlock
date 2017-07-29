@@ -1,17 +1,18 @@
 # require 'rotator'
 require 'byebug'
-require 'forwardable'
 
-class Node
+class DblList
+  include Enumerable
+
   attr_accessor :val, :pred, :succ
 
-  def initialize(val, pred: self, succ: self)
+  def initialize(val)
     @val = val
-    @pred = pred
-    @succ = succ
+    @pred = self
+    @succ = self
   end
 
-  # @param item [Node] the item to be added at end of this list
+  # @param item [DblList] the item to be added at end of this list
   def add(item)
     # current state: pred <-> self
 
@@ -26,33 +27,19 @@ class Node
     self.pred = item
   end
 
-  # @param index [Integer]
-  # @return [Node] element at
-  def [](index)
-    current_ref = self
-    index.times { current_ref = current_ref.succ }
-    current_ref
+  # @yield [DblList] each node of the list
+  def each(&block)
+    p = self
+    loop do
+      yield p
+      break if (p = p.succ) == self
+    end
   end
-end
 
-def print
-  board_width = 2
-  board = 'TXOX'
-
-  # insertion
-  # @todo move to method
-  header, *tail = board.chars.map(&Node.method(:new))
-  tail.each(&header.method(:add))
-
-  # print
-  # @todo move to method
-  count = 0
-  current = header
-  # @todo create an iterator method for Node
-  loop do
-    count = (count + 1) % board_width
-    print current.val + count.zero? ? "\n" : ' '
-    break if (current = current.succ) == header
+  # @param index [Integer]
+  # @return [DblList] element at
+  def [](index)
+    index.zero? ? self : succ[index - 1]
   end
 end
 
@@ -74,59 +61,11 @@ end
 #     0 1 0 1 |
 #     0 0 1 1 |
 
-# setup header
-def main
-  board = [2, 'oxxx']
-  header_ref, current_ref = nil
-
-  board[1].each_char do |symbol|
-    new_ref = HeaderCell.new(symbol)
-
-    current_ref&.row&.add(new_ref)
-    current_ref = new_ref
-    header_ref = current_ref unless header_ref
-  end
-
-  pieces = [[2, 'xo'], [2, 'xx']]
-  pieces.each_with_index do |index, piece|
-    piece_solutions =
-      case index
-      when 0
-        [[0, 1], [0, 2]]
-      when 1
-        [[1, 3], [2, 3]]
-      end
-
-    piece_solution = PieceSolution.new(piece)
-    piece_solutions.each do |positions|
-      solution_node = nil
-
-      positions.each do |column_index|
-        # init new node for solution
-        new_solution_node = PieceNode.new(piece_solution)
-        if solution_node
-          # add the new solution ref to the end of solution row
-          solution_node.add_to_row(new_solution_node)
-        else
-          # for the first node solution_node will be nil and we assign it
-          solution_node = new_solution_node unless solution_node
-        end
-
-        # link solution cell with the header row
-        header_ref[column_index].add_to_column(solution_node)
-      end
-
-      # piece_solution will point to all solution_nodes
-      piece_cell << solution_node
-    end
-  end
-
-  header_ref.add_column
-end
-
 # Keep track of piece solution in the grid
 # It is used to remove piece's solutions from the grid
 class PieceSolution
+  attr_reader :piece, :solutions
+
   def initialize(piece)
     # @todo not sure @piece will be need
     @piece = piece
@@ -141,31 +80,43 @@ class PieceSolution
   end
 end
 
-module Cell
-  extend Forwardable
+module Node
+  attr_reader :row, :column
 
   def init_lists
-    @row = Node.new(self)
-    @column = Node.new(self)
+    @row = DblList.new(self)
+    @column = DblList.new(self)
   end
 
-  def_delegator :@row, :succ, :lt
-  def_delegator :@row, :pred, :rg
-  def_delegator :@column, :pred, :up
-  def_delegator :@column, :succ, :dw
+  # @todo drop the call to `.val` from the next methods
+  def lt
+    @row.succ.val
+  end
+
+  def rg
+    @row.pred.val
+  end
+
+  def up
+    @column.pred.val
+  end
+
+  def dn
+    @column.succ.val
+  end
 
   # Add node to the bottom of column
   #
-  # @param [Cell]
+  # @param [Node]
   def add_to_column(node)
-    @column.add(node)
+    @column.add(node.column)
   end
 
   # Add node to the end of row
   #
-  # @param [Cell]
+  # @param [Node]
   def add_to_row(node)
-    @row.add(node)
+    @row.add(node.row)
   end
 
   def id
@@ -185,16 +136,24 @@ module Cell
 end
 
 class PieceNode
-  include Cell
+  include Node
 
-  def initialize(piece_ref)
-    @piece_ref = piece_ref
+  attr_reader :piece_solution, :head
+
+  def initialize(piece_solution, head)
+    @piece_solution = piece_solution
+    @head = head
     init_lists
+
+    # link solution cell with the header row
+    head.add_to_column(self)
   end
 end
 
 class HeaderCell
-  include Cell
+  include Node
+
+  attr_reader :symbol, :size
 
   def initialize(symbol)
     @symbol = symbol
@@ -207,16 +166,99 @@ class HeaderCell
   # @param [Number] index
   # @return [HeaderCell]
   def [](index)
-    @row[index]
+    # @todo using .val here is confusing
+    @row[index].val
   end
 
   # Add node to the end of column and increment size
   #
-  # @param (see Cell#add_to_column)
+  # @param (see Node#add_to_column)
   def add_to_column(node)
     super(node)
     @size += 1
   end
+
+  def print_row(stop = nil)
+    return symbol.to_s if rg == stop
+    format('%s %s', symbol, rg.print_row(stop ? stop : self))
+  end
+end
+
+# setup header
+def main
+  board = [2, 'oxxx']
+  header_ref, current_ref = nil
+
+  board[1].each_char do |symbol|
+    new_ref = HeaderCell.new(symbol)
+
+    current_ref&.add_to_row(new_ref)
+    current_ref = new_ref
+    header_ref = current_ref unless header_ref
+  end
+
+  pieces = [[2, 'xo'], [2, 'xx']]
+  piece_solutions = pieces.each_with_index.map do |piece, index|
+    # @todo generate board-fit for each piece...
+    hard_coded_fits =
+      case index
+      when 0
+        [[0, 1], [0, 2]]
+      when 1
+        [[1, 3], [2, 3]]
+      end
+
+    PieceSolution.new(piece).tap do |piece_solution|
+      # @todo move to a method
+      hard_coded_fits.each do |positions|
+        solution_node = nil
+
+        positions.each do |column_index|
+          # init new node for solution
+          new_solution_node = PieceNode.new(piece_solution, header_ref[column_index])
+          if solution_node
+            # add the new solution ref to the end of solution row
+            solution_node.add_to_row(new_solution_node)
+          else
+            # for the first node solution_node will be nil and we assign it
+            solution_node = new_solution_node unless solution_node
+          end
+        end
+
+        # piece_solution will point to all solution_nodes
+        piece_solution << solution_node
+      end
+    end
+  end
+
+  # # Solution Matrix
+  #
+  #     O X X X Header
+  #     ------- OX piece
+  #     1 1 0 0 |
+  #     1 0 1 0 |
+  #     ------- XX piece
+  #     0 1 0 1 |
+  #     0 0 1 1 |
+  puts "#{header_ref.print_row.upcase} HEADER"
+
+  piece_solution = piece_solutions.first
+  puts "------- #{piece_solution.piece[1].upcase} piece"
+
+  heads = piece_solution.solutions.first.row.to_a.map(&:val).map(&:head)
+  puts header_ref.row.to_a.map {|i| heads.include?(i.val) ? 'x' : '.' }.join(' ')
+
+  heads = piece_solution.solutions[1].row.to_a.map(&:val).map(&:head)
+  puts header_ref.row.to_a.map {|i| heads.include?(i.val) ? 'x' : '.' }.join(' ')
+
+  piece_solution = piece_solutions[1]
+  puts "------- #{piece_solution.piece[1].upcase} piece"
+
+  heads = piece_solution.solutions.first.row.to_a.map(&:val).map(&:head)
+  puts header_ref.row.to_a.map {|i| heads.include?(i.val) ? 'x' : '.' }.join(' ')
+
+  heads = piece_solution.solutions[1].row.to_a.map(&:val).map(&:head)
+  puts header_ref.row.to_a.map {|i| heads.include?(i.val) ? 'x' : '.' }.join(' ')
 end
 
 main
