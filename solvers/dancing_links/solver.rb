@@ -4,10 +4,10 @@ require 'byebug'
 class DblList
   include Enumerable
 
-  attr_accessor :val, :pred, :succ
+  attr_accessor :owner, :pred, :succ
 
-  def initialize(val)
-    @val = val
+  def initialize(owner = self)
+    @owner = owner
     @pred = self
     @succ = self
   end
@@ -31,7 +31,7 @@ class DblList
   def each(&block)
     p = self
     loop do
-      yield p
+      yield p.owner
       break if (p = p.succ) == self
     end
   end
@@ -39,27 +39,9 @@ class DblList
   # @param index [Integer]
   # @return [DblList] element at
   def [](index)
-    index.zero? ? self : succ[index - 1]
+    index.zero? ? owner : succ[index - 1]
   end
 end
-
-# @todo try to print this Solution Matrix
-# # Board:
-#     O X
-#     X X
-#
-# # Pieces
-#     [O X], [X X]
-#
-# # Solution Matrix
-#
-#     O X X X Header
-#     ------- OX piece
-#     1 1 0 0 |
-#     1 0 1 0 |
-#     ------- XX piece
-#     0 1 0 1 |
-#     0 0 1 1 |
 
 # Keep track of piece solution in the grid
 # It is used to remove piece's solutions from the grid
@@ -88,21 +70,15 @@ module Node
     @column = DblList.new(self)
   end
 
-  # @todo drop the call to `.val` from the next methods
-  def lt
-    @row.succ.val
-  end
-
-  def rg
-    @row.pred.val
-  end
-
-  def up
-    @column.pred.val
-  end
-
-  def dn
-    @column.succ.val
+  # @todo add docs
+  def [](direction)
+    case direction
+    when :lt then @row.succ.owner
+    when :rg then @row.pred.owner
+    when :up then @column.pred.owner
+    when :dn then @column.succ.owner
+    else raise(ArgumentError, "direction #{direction} not supported")
+    end
   end
 
   # Add node to the bottom of column
@@ -126,7 +102,7 @@ module Node
   def lists_refs
     format(
       'lt#%s rg#%s up#%s dw#%s',
-      *[lt, rg, up, dw].map { |ref| ref.val.id }
+      *[lt, rg, up, dw].map(&:id)
     )
   end
 
@@ -161,26 +137,25 @@ class HeaderCell
     init_lists
   end
 
-  # Get horizontal nodes by index
+  # Override Node#[] to add the hability to fetch horizontal nodes by index
   #
-  # @param [Number] index
+  # @param [Number, Symbol] index or direction
   # @return [HeaderCell]
-  def [](index)
-    # @todo using .val here is confusing
-    @row[index].val
+  def [](arg)
+    arg.class == Symbol ? super : @row[arg]
   end
 
   # Add node to the end of column and increment size
   #
   # @param (see Node#add_to_column)
   def add_to_column(node)
-    super(node)
+    super
     @size += 1
   end
 
   def print_row(stop = nil)
-    return symbol.to_s if rg == stop
-    format('%s %s', symbol, rg.print_row(stop ? stop : self))
+    return symbol.to_s if self[:rg] == stop
+    format('%s %s', symbol, self[:rg].print_row(stop ? stop : self))
   end
 end
 
@@ -233,32 +208,32 @@ def main
 
   # # Solution Matrix
   #
-  #     O X X X Header
-  #     ------- OX piece
-  #     1 1 0 0 |
-  #     1 0 1 0 |
-  #     ------- XX piece
-  #     0 1 0 1 |
-  #     0 0 1 1 |
+  #    O X X X HEADER
+  #    ------- XO piece
+  #    x x . .
+  #    x . x .
+  #    ------- XX piece
+  #    . x . x
+  #    . . x x
   puts "#{header_ref.print_row.upcase} HEADER"
 
   piece_solution = piece_solutions.first
   puts "------- #{piece_solution.piece[1].upcase} piece"
 
-  heads = piece_solution.solutions.first.row.to_a.map(&:val).map(&:head)
-  puts header_ref.row.to_a.map {|i| heads.include?(i.val) ? 'x' : '.' }.join(' ')
+  heads = piece_solution.solutions.first.row.map(&:head)
+  puts header_ref.row.map {|i| heads.include?(i) ? 'x' : '.' }.join(' ')
 
-  heads = piece_solution.solutions[1].row.to_a.map(&:val).map(&:head)
-  puts header_ref.row.to_a.map {|i| heads.include?(i.val) ? 'x' : '.' }.join(' ')
+  heads = piece_solution.solutions[1].row.map(&:head)
+  puts header_ref.row.map {|i| heads.include?(i) ? 'x' : '.' }.join(' ')
 
   piece_solution = piece_solutions[1]
   puts "------- #{piece_solution.piece[1].upcase} piece"
 
-  heads = piece_solution.solutions.first.row.to_a.map(&:val).map(&:head)
-  puts header_ref.row.to_a.map {|i| heads.include?(i.val) ? 'x' : '.' }.join(' ')
+  heads = piece_solution.solutions.first.row.map(&:head)
+  puts header_ref.row.map {|i| heads.include?(i) ? 'x' : '.' }.join(' ')
 
-  heads = piece_solution.solutions[1].row.to_a.map(&:val).map(&:head)
-  puts header_ref.row.to_a.map {|i| heads.include?(i.val) ? 'x' : '.' }.join(' ')
+  heads = piece_solution.solutions[1].row.map(&:head)
+  puts header_ref.row.map {|i| heads.include?(i) ? 'x' : '.' }.join(' ')
 end
 
 main
