@@ -4,10 +4,10 @@ require 'byebug'
 class DblList
   include Enumerable
 
-  attr_accessor :owner, :pred, :succ
+  attr_accessor :val, :pred, :succ
 
-  def initialize(owner = self)
-    @owner = owner
+  def initialize(val = self)
+    @val = val
     @pred = self
     @succ = self
   end
@@ -27,11 +27,13 @@ class DblList
     self.pred = item
   end
 
-  # @yield [DblList] each node of the list
-  def each(&block)
+  # @yield [DblList, Object] val of each node in the list
+  def each
     p = self
     loop do
-      yield p.owner
+      # @todo yielding .val is a hack to help Node management,
+      #       move this to a better place
+      yield p.val
       break if (p = p.succ) == self
     end
   end
@@ -39,7 +41,7 @@ class DblList
   # @param index [Integer]
   # @return [DblList] element at
   def [](index)
-    index.zero? ? owner : succ[index - 1]
+    index.zero? ? val : succ[index - 1]
   end
 end
 
@@ -73,10 +75,10 @@ module Node
   # @todo add docs
   def [](direction)
     case direction
-    when :lt then @row.succ.owner
-    when :rg then @row.pred.owner
-    when :up then @column.pred.owner
-    when :dn then @column.succ.owner
+    when :lt then @row.succ.val
+    when :rg then @row.pred.val
+    when :up then @column.pred.val
+    when :dn then @column.succ.val
     else raise(ArgumentError, "direction #{direction} not supported")
     end
   end
