@@ -3,19 +3,18 @@ require 'ostruct'
 require 'minitest'
 
 def main
-  board = new_grid(<<~HEAD)
+  game = {}
+  game[:board] = new_grid(<<~HEAD)
     o x
     x x
   HEAD
 
-  header = setup_header(board)
-  hrefs  = row_cells(header).to_a
+  game[:header] = setup_header(game[:board])
+  game[:hrefs]  = hrefs = row_cells(game[:header]).to_a
 
   # create linked list for 'piece' at 'matches' positions
-  piece_xo = new_grid('o x')
-  piece_xo_solutions = create_solutions(board, hrefs, piece_xo)
-  piece_xx = new_grid('x x')
-  piece_xx_solutions = create_solutions(board, hrefs, piece_xx)
+  game[:pieces] = [new_grid('o x'), new_grid('x x')]
+  game[:solutions] = solutions = create_solutions(game)
 
   # # Solution Matrix
   #
@@ -27,55 +26,60 @@ def main
   #    . x . x
   #    . . x x
   puts hrefs.map { |p| p[:v] }.join(' ').upcase + ' HEADER'
-  puts hrefs.map { '-' }.join('-') + ' XO piece'
-  piece_xo_solutions.each do |sol|
-    prefs = row_cells(sol).map { |r| r[:h] }
-    puts hrefs.map { |href| prefs.include?(href) ? 'x' : '.' }.join(' ')
-  end
-  puts hrefs.map { '-' }.join('-') + ' XX piece'
-  piece_xx_solutions.each do |sol|
-    prefs = row_cells(sol).map { |r| r[:h] }
-    puts hrefs.map { |href| prefs.include?(href) ? 'x' : '.' }.join(' ')
+
+  solutions.each do |(piece, srows)|
+    puts hrefs.map { '-' }.join('-') + " #{piece[:cells].join.upcase} piece"
+    srows.each do |ref|
+      prefs = row_cells(ref).map { |r| r[:h] }
+      puts hrefs.map { |href| prefs.include?(href) ? 'x' : '.' }.join(' ')
+    end
   end
 
   puts
 end
 
-def create_solutions(board, hrefs, piece)
-  matches = find_matches(board, piece)
+def create_solutions(game)
+  board, hrefs, pieces = %i[board hrefs pieces].map { |k| game[k] }
 
-  matches.each_with_object([]) do |match, solutions|
-    refs = match.map { create_ref }
+  pieces.map do |piece|
+    matches = find_matches(board, piece)
 
-    # horizontal links
-    refs.each_cons(2) do |a, b|
-      b[:l]     = a
-      b[:r]     = a[:r]
-      a[:r][:l] = b
-      a[:r]     = b
+    ss = matches.each_with_object([]) do |match, solutions|
+      refs = match.map { create_ref }
+
+      # horizontal links
+      refs.each_cons(2) do |a, b|
+        b[:l]     = a
+        b[:r]     = a[:r]
+        a[:r][:l] = b
+        a[:r]     = b
+      end
+
+      # vertical links
+      match.each_with_index do |m, i|
+        a = hrefs[m]
+        b = refs[i]
+        a[:s] += 1
+        b[:h]  = a
+
+        b[:u]     = a
+        b[:d]     = a[:d]
+        a[:d][:u] = b
+        a[:d]     = b
+      end
+
+      debugger if refs.any?{|r| r[:r].nil? }
+      solutions << refs.first
     end
 
-    # vertical links
-    match.each_with_index do |m, i|
-      a = hrefs[m]
-      b = refs[i]
-      a[:v] += 1
-      b[:h] = a
-
-      b[:u]     = a
-      b[:d]     = a[:d]
-      a[:d][:u] = b
-      a[:d]     = b
-    end
-
-    solutions << refs.first
+    [piece, ss]
   end
 end
 
 def create_ref(initial = {})
   hash = Hash.new do |h, k|
-    h[k] = h if %i[l u r d].include?(k)
-    h[k] = 0 if k == :v
+    next h[k] = h if %i[l u r d].include?(k)
+    next h[k] = 0 if k == :s
   end
   hash.merge(initial)
 end
@@ -171,5 +175,5 @@ class SolverTest < Minitest::Test
     assert_equal [[1, 3], [2, 3]], matches
   end
 end
-
-Minitest.autorun
+main
+# Minitest.autorun
