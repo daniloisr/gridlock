@@ -11,9 +11,9 @@ class SolverTest < Minitest::Test
     BOARD
   end
 
-  def test_setup_header
-    header = setup_header(@board)
-    names = row_cells(header).map { |cell| cell[:n] }
+  def test_create_columns
+    root = create_columns(@board, [])
+    names = walk(root, skip: true).map { |cell| cell[:n] }
     assert_equal 'oxxx', names.join
   end
 
@@ -30,16 +30,7 @@ class SolverTest < Minitest::Test
   end
 
   def test_matrix
-    game = {}
-    game[:board] = @board
-    game[:header] = setup_header(game[:board])
-    game[:hrefs]  = hrefs = row_cells(game[:header]).to_a
-
-    # create linked list for 'piece' at 'matches' positions
-    game[:pieces] = [new_grid('o x'), new_grid('x x')]
-    game[:solutions] = create_solutions(game)
-
-    # # Solution Matrix
+    root = create_solve_matrix(@board, [new_grid('o x'), new_grid('x x')])
     solution_matrix = <<~MATRIX.chomp
       1 2 O X X X
       x . x x . .
@@ -48,19 +39,6 @@ class SolverTest < Minitest::Test
       . x . . x x
     MATRIX
 
-    print_matrix = []
-    print_matrix << (1..game[:solutions].size).to_a.join(' ') + ' ' + hrefs.map { |p| p[:n] }.join(' ').upcase
-
-    game[:solutions].each do |solution|
-      _piece, srows = solution
-
-      srows.each do |ref|
-        prefs = row_cells(ref).map { |r| r[:c] }
-        piece_prefix = game[:solutions].map { |s| s == solution ? 'x' : '.' }.join(' ')
-        print_matrix << piece_prefix + ' ' + hrefs.map { |href| prefs.include?(href) ? 'x' : '.' }.join(' ')
-      end
-    end
-
-    assert_equal solution_matrix, print_matrix.join("\n")
+    assert_equal solution_matrix, print_matrix(root)
   end
 end

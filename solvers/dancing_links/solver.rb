@@ -1,41 +1,29 @@
-def create_solutions(game)
-  board, hrefs, pieces = %i[board hrefs pieces].map { |k| game[k] }
-
-  pieces.map do |piece|
+def link_solutions(board, pieces, cols)
+  pieces.each_with_index do |piece, pi|
     matches = find_matches(board, piece)
 
-    ss = matches.each_with_object([]) do |match, solutions|
-      refs = match.map { create_ref }
+    matches.each do |match|
+      head, = els = Array.new(match.size.succ) { create_el }
+      head[:c] = cols[pi]
 
       # horizontal links
-      refs.each_cons(2) do |a, b|
-        b[:l]     = a
-        b[:r]     = a[:r]
-        a[:r][:l] = b
-        a[:r]     = b
-      end
+      els.each_cons(2) { |a, b| link(a, b) }
 
       # vertical links
+      link(head[:c], head, :d, :u)
       match.each_with_index do |m, i|
-        a = hrefs[m]
-        b = refs[i]
-        a[:s] += 1
-        b[:c]  = a
+        c  = cols[pieces.size + m]
+        el = els[i + 1]
+        c[:s] += 1
+        el[:c] = c
 
-        b[:u]     = a
-        b[:d]     = a[:d]
-        a[:d][:u] = b
-        a[:d]     = b
+        link(c, el, :d, :u)
       end
-
-      solutions << refs.first
     end
-
-    [piece, ss]
   end
 end
 
-def create_ref(initial = {})
+def create_el(initial = {})
   hash = Hash.new do |h, k|
     next h[k] = h if %i[l u r d].include?(k)
     next h[k] = 0 if k == :s
@@ -43,24 +31,23 @@ def create_ref(initial = {})
   hash.merge(initial)
 end
 
-def setup_header(board)
-  head, *tail = board[:cells]
-  header = p = create_ref(n: head)
-  p[:r] = p[:l] = p
-  tmp = create_ref
+def create_columns(board, pieces)
+  els = ([nil] + pieces + board[:cells]).map { |i| create_el(n: i) }
+  els.each_cons(2) { |a, b| link(a, b) }
+  els.first
+end
 
-  tail.each do |cell|
-    tmp[:n]   = cell
-    tmp[:l]   = p
-    tmp[:r]   = p[:r]
-    p[:r][:l] = tmp
-    p[:r]     = tmp
+def create_solve_matrix(board, pieces)
+  root = create_columns(board, pieces)
+  link_solutions(board, pieces, walk(root, skip: 1))
+  root
+end
 
-    p = tmp
-    tmp = create_ref
-  end
-
-  header
+def link(a, b, pr = :l, su = :r)
+  b[pr]     = a
+  b[su]     = a[su]
+  a[su][pr] = b
+  a[su]     = b
 end
 
 def find_matches(board, piece)
@@ -91,14 +78,15 @@ def find_matches(board, piece)
   matches.uniq
 end
 
-def row_cells(ref)
-  p = ref
+def walk(ref, skip: nil, dir: :r)
+  p = skip ? ref[dir] : ref
+  stop = ref
 
-  Enumerator.new do |y|
+  [].tap do |y|
     loop do
       y << p
-      p = p[:r]
-      break if p == ref
+      p = p[dir]
+      break if p == stop
     end
   end
 end
@@ -106,4 +94,27 @@ end
 def new_grid(str)
   lines = str.delete(' ').split
   { width: lines.first.size, cells: lines.join.chars }
+end
+
+def print_matrix(root)
+  buf = []
+  printed = []
+  cols = walk(root, skip: 1)
+
+  buf <<
+    cols
+    .each_with_index
+    .map { |e, i| e[:n].is_a?(String) ? e[:n].upcase : i + 1 }
+
+  cols.each do |col|
+    walk(col, dir: :d, skip: 1).each do |row|
+      next if printed.include?(row)
+      walk(row).each { |el| printed << el }
+
+      el_cols = walk(row).map { |el| el[:c] }
+      buf << cols.map { |col2| el_cols.include?(col2) ? 'x' : '.' }
+    end
+  end
+
+  buf.map { |i| i.join(' ') }.join("\n")
 end
