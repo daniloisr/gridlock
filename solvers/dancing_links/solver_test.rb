@@ -41,4 +41,17 @@ class SolverTest < Minitest::Test
 
     assert_equal solution_matrix, print_matrix(root)
   end
+
+  def test_first_step
+    root = create_solve_matrix(@board, [new_grid('o x'), new_grid('x x')])
+    first_column = walk(root, skip: 1)[0]
+    removed = search(root)
+    solution_matrix = <<~MATRIX.chomp
+      2 X X
+      x x x
+    MATRIX
+
+    assert_equal removed[0], first_column
+    assert_equal solution_matrix, print_matrix(root)
+  end
 end

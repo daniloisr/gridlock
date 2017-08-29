@@ -24,6 +24,11 @@ def link_solutions(board, pieces, cols)
 end
 
 def create_el(initial = {})
+  # meanings
+  # l u r d => left up right down
+  # s => size
+  # c => column ref
+  # n => name
   hash = Hash.new do |h, k|
     next h[k] = h if %i[l u r d].include?(k)
     next h[k] = 0 if k == :s
@@ -80,13 +85,13 @@ end
 
 def walk(ref, skip: nil, dir: :r)
   p = skip ? ref[dir] : ref
-  stop = ref
+  return [] if skip && p == ref
 
   [].tap do |y|
     loop do
       y << p
       p = p[dir]
-      break if p == stop
+      break if p == ref
     end
   end
 end
@@ -117,4 +122,36 @@ def print_matrix(root)
   end
 
   buf.map { |i| i.join(' ') }.join("\n")
+end
+
+def search(root)
+  col = walk(root, skip: 1).first
+  o = []
+
+  cover(root, col, skip: 1)
+  # @todo try to remove the ".each" after "walk()" method
+  # [1..-1] is the first piece fit, we need to iterate over it
+  walk(col, dir: :d, skip: 1)[1..-1].each do |row|
+    walk(row).each { |el|
+    o << el[:c]
+    cover(root, el[:c]) }
+  end
+
+  [col]
+end
+
+def cover(root, col, skip: nil)
+  return unless walk(root).include?(col)
+  col[:l][:r] = col[:r]
+  col[:r][:l] = col[:l]
+
+  walk(col, dir: :d, skip: 1).each do |row|
+    walk(row, skip: skip).each do |el|
+      el[:u][:d] = el[:d]
+      el[:d][:u] = el[:u]
+    end
+
+    puts print_matrix(root)
+    puts '---'
+  end
 end
