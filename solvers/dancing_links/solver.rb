@@ -107,6 +107,7 @@ def clone(root)
   memo = { root.object_id => create_el(clone_of: root) }
 
   until queue.empty?
+    # @todo chose a single name "node" or "el"
     node = queue.shift
     nnode = memo[node.object_id]
     nroot ||= nnode
@@ -173,32 +174,66 @@ def debug_node(node)
     .join(' ')
 end
 
-def search(root)
-  col = walk(root, skip: 1).first
-  o = []
+def search(root, out = nil)
+  out ||= {
+    memo: {},
+    result: []
+  }
 
-  cover(col, skip: 1)
+  return out if root == root[:r]
+
+  # @todo chose the best column to run
+  col = walk(root, skip: 1).first
+
+  cover(col)
   # @todo try to remove the ".each" after "walk()" method
   # @todo ".take(1)" is the first piece fit, we need to iterate on all
-  walk(col, dir: :d, skip: 1).take(1).each do |row|
+  walk(col, dir: :d, skip: 1).take(1).each_with_index do |row, index|
+    out[:result] << [row[:c], index]
     walk(row).each do |el|
-      next if o.include?(el[:c])
-      o << el[:c]
+      next if out[:memo][el[:c].object_id]
+      out[:memo][el[:c].object_id] = true
       cover(el[:c])
+    end
+
+    return out if search(root, out)
+
+    # @todo uncover...
+    out[:result].pop
+    walk(row).each do |el|
+      out[:memo].delete(el[:c].object_id)
+      uncover(el[:c])
     end
   end
 
-  [col]
+  uncover(col)
+
+  out
 end
 
-def cover(col, skip: nil)
+def cover(col)
   col[:l][:r] = col[:r]
   col[:r][:l] = col[:l]
 
   walk(col, dir: :d, skip: 1).each do |row|
     walk(row, skip: 1).each do |el|
+      # @todo reduce el[:s] when selecting columns by size
       el[:u][:d] = el[:d]
       el[:d][:u] = el[:u]
     end
   end
+end
+
+def uncover(col)
+  # @todo remove "skip: 1", it is used all the times on "search()"
+  walk(col, dir: :d, skip: 1).each do |row|
+    walk(row, skip: 1).each do |el|
+      # @todo increase el[:s] when selecting columns by size
+      el[:u][:d] = el
+      el[:d][:u] = el
+    end
+  end
+
+  col[:l][:r] = col
+  col[:r][:l] = col
 end
