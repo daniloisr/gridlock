@@ -42,8 +42,16 @@ class SolverTest < Minitest::Test
     assert_equal solution_matrix, print_matrix(root)
   end
 
+  def test_clone
+    root = create_solve_matrix(new_grid('o x'), [new_grid('o x')])
+    cloned = clone(root)
+
+    assert_equal print_matrix(root), print_matrix(cloned)
+  end
+
   def test_first_step
     root = create_solve_matrix(@board, [new_grid('o x'), new_grid('x x')])
+    ref_root = clone(root)
     first_column = walk(root, skip: 1)[0]
     removed = search(root)
     solution_matrix = <<~MATRIX.chomp
@@ -52,6 +60,6 @@ class SolverTest < Minitest::Test
     MATRIX
 
     assert_equal removed[0], first_column
-    assert_equal solution_matrix, print_matrix(root)
+    assert_equal solution_matrix, print_matrix(root, ref_root)
   end
 end

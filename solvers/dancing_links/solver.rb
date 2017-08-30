@@ -101,15 +101,53 @@ def new_grid(str)
   { width: lines.first.size, cells: lines.join.chars }
 end
 
-def print_matrix(root)
+def clone(root)
+  nroot = nil
+  queue = [root]
+  memo = { root.object_id => create_el(clone_of: root) }
+
+  until queue.empty?
+    node = queue.shift
+    nnode = memo[node.object_id]
+    nroot ||= nnode
+
+    %i[l u r d c].each do |k|
+      n = node[k]
+      oid = n.object_id
+
+      next unless n
+
+      unless memo[oid]
+        memo[oid] = create_el(clone_of: n)
+        queue.push(n)
+      end
+
+      nnode[k] = memo[oid]
+    end
+
+    %i[s n].each { |k| nnode[k] = node[k] }
+  end
+
+  nroot
+end
+
+def print_matrix(root, ref_root = nil)
   buf = []
   printed = []
   cols = walk(root, skip: 1)
+  cols_ref = ref_root ? walk(ref_root, skip: 1).map { |i| i[:clone_of] } : cols
 
-  buf <<
-    cols
+  buf.push(
+    cols_ref
     .each_with_index
-    .map { |e, i| e[:n].is_a?(String) ? e[:n].upcase : i + 1 }
+    .map do |e, i|
+      if    !cols.include?(e)   then nil
+      elsif e[:n].is_a?(String) then e[:n].upcase
+      else i + 1
+      end
+    end
+    .compact
+  )
 
   cols.each do |col|
     walk(col, dir: :d, skip: 1).each do |row|
@@ -124,34 +162,43 @@ def print_matrix(root)
   buf.map { |i| i.join(' ') }.join("\n")
 end
 
+def debug_node(node)
+  return 'nil' unless node
+  %i[l u r d]
+    .map { |k| [k, node[k]] }
+    .unshift([:self, node])
+    .select { |(_, b)| b }
+    .map { |(a, b)| [a, b.object_id.to_s(16)[-4..-1]].join(':') }
+    .push(node[:n] ? "n:#{node[:n]}" : nil)
+    .join(' ')
+end
+
 def search(root)
   col = walk(root, skip: 1).first
   o = []
 
-  cover(root, col, skip: 1)
+  cover(col, skip: 1)
   # @todo try to remove the ".each" after "walk()" method
-  # [1..-1] is the first piece fit, we need to iterate over it
-  walk(col, dir: :d, skip: 1)[1..-1].each do |row|
-    walk(row).each { |el|
-    o << el[:c]
-    cover(root, el[:c]) }
+  # @todo ".take(1)" is the first piece fit, we need to iterate on all
+  walk(col, dir: :d, skip: 1).take(1).each do |row|
+    walk(row).each do |el|
+      next if o.include?(el[:c])
+      o << el[:c]
+      cover(el[:c])
+    end
   end
 
   [col]
 end
 
-def cover(root, col, skip: nil)
-  return unless walk(root).include?(col)
+def cover(col, skip: nil)
   col[:l][:r] = col[:r]
   col[:r][:l] = col[:l]
 
   walk(col, dir: :d, skip: 1).each do |row|
-    walk(row, skip: skip).each do |el|
+    walk(row, skip: 1).each do |el|
       el[:u][:d] = el[:d]
       el[:d][:u] = el[:u]
     end
-
-    puts print_matrix(root)
-    puts '---'
   end
 end
