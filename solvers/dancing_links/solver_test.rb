@@ -4,6 +4,8 @@ require 'byebug'
 require_relative './solver.rb'
 
 class SolverTest < Minitest::Test
+  include DancingLinks
+
   def setup
     @board = new_grid(<<~BOARD)
       o x
@@ -13,7 +15,7 @@ class SolverTest < Minitest::Test
 
   def test_create_columns
     root = create_columns(@board, [])
-    names = walk(root, skip: true).map { |cell| cell[:n] }
+    names = walk(root, skip: true).map { |cell| cell.name }
     assert_equal 'oxxx', names.join
   end
 
@@ -42,30 +44,6 @@ class SolverTest < Minitest::Test
     assert_equal solution_matrix, print_matrix(root)
   end
 
-  def test_clone
-    root = create_solve_matrix(new_grid('o x'), [new_grid('o x')])
-    cloned = clone(root)
-
-    assert_equal print_matrix(root), print_matrix(cloned)
-  end
-
-  # @todo add a way to stop search in the middle of the proccess
-  def test_first_step
-    skip 'There is no more "first_step", but it would be useful...'
-    root = create_solve_matrix(@board, [new_grid('o x'), new_grid('x x')])
-    ref_root = clone(root)
-    first_column = walk(root, skip: 1)[0]
-    removed = search(root)
-    # @todo improve variable declarion on this test
-    solution_matrix = <<~MATRIX.chomp
-      2 X X
-      x x x
-    MATRIX
-
-    assert_equal removed[0], first_column
-    assert_equal solution_matrix, print_matrix(root, ref_root)
-  end
-
   def test_search_single_piece
     root = create_solve_matrix(new_grid('o x'), [new_grid('o x')])
     assert_equal [[root[:r], 0]], search(root)[:result]
@@ -79,11 +57,8 @@ class SolverTest < Minitest::Test
       [root[:r][:r], 0]
     ]
     result = search(root)[:result]
-    pretty = ->((node, index)) { [debug_node(node), index] }
+    pretty = ->((node, index)) { [node.inspect, index] }
 
-    # @todo failing test is impossible to read, should use a better struct
-    #       instead of a hash and print it using a method like 'debug_node'
-    #       Parsing the results before comparing (temporary)...
     assert_equal expected.map(&pretty), result.map(&pretty)
   end
 
@@ -92,11 +67,19 @@ class SolverTest < Minitest::Test
     assert_equal [], search(root)[:result]
   end
 
+  # matrix:
+  #   el4 is uncovered with el1
+  #
+  #     el1    el4
+  #      |      |
+  #   > el2 <> el3 <
+  #
   def test_uncover
-    el1 = create_el
-    el2 = create_el(u: el1, d: el1)
-    el3 = create_el
-    el4 = create_el(l: el1, r: el1)
+    # @todo use a "create_solve_matrix" and "cover" to setup this test
+    el1 = Node.new
+    el2 = Node.new(u: el1, d: el1)
+    el3 = Node.new
+    el4 = Node.new(l: el1, r: el1)
     link(el2, el3)
     link(el4, el3, :u, :d)
     uncover(el4)
