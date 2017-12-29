@@ -28,9 +28,10 @@ pieces = [a,a,b,b,c,c,d,f,g,i,j,k].map {|i| Piece.new(2, i)}
 puts "solving game 'AABBCCDFGIJK' ..."
 
 # Warning: GOHORSE code bellow
-solution = Marshal.load(File.read('solution.marshal'))
-# solution = Solver.solve(board, pieces)
-# File.open('solution.marshal', 'w') { |f| f.puts Marshal.dump(solution) }
+# solution = Marshal.load(File.read('solution.marshal'))
+solution = Solver.solve(board, pieces)
+File.open('solution.marshal', 'w') { |f| f.puts Marshal.dump(solution) }
+
 board = solution[:board]
 pieces = solution[:pieces]
 blines = Printer.new(board).print
