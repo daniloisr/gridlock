@@ -7,7 +7,7 @@ class SolverTest < Minitest::Test
   include DancingLinks
 
   def setup
-    @board = new_grid(<<~BOARD)
+    @board = grid(<<~BOARD)
       o x
       x x
     BOARD
@@ -15,24 +15,136 @@ class SolverTest < Minitest::Test
 
   def test_create_columns
     root = create_columns(@board, [])
-    names = walk(root, skip: true).map { |cell| cell.name }
+    names = walk(root, skip: true).map(&:name)
     assert_equal 'oxxx', names.join
   end
 
   def test_piece_matches_1
-    piece = new_grid('x o')
+    piece = piece('x o')
     matches = find_matches(@board, piece)
-    assert_equal [[0, 1], [0, 2]], matches
+    assert_equal [[[0, 1], 2], [[0, 2], 1]], matches
   end
 
   def test_piece_matches_2
-    piece = new_grid('x x')
+    piece = piece('x x')
     matches = find_matches(@board, piece)
-    assert_equal [[1, 3], [2, 3]], matches
+    assert_equal [[[1, 3], 3], [[2, 3], 0]], matches
   end
 
   def test_matrix
-    root = create_solve_matrix(@board, [new_grid('o x'), new_grid('x x')])
+    root = create_solve_matrix(@board, [piece('o x'), piece('x x')])
+    solution_matrix = <<~MATRIX.chomp
+      1 2 O X X X
+      x . x x . .
+      x . x . x .
+      . x . x . x
+      . x . . x x
+    MATRIX
+
+    assert_equal 2, root.r.size
+    assert_equal solution_matrix, print_matrix(root)
+  end
+
+  def test_search_single_piece
+    root = create_solve_matrix(grid('o x'), [piece('o x')])
+    assert_equal [root.r.d], search(root)
+  end
+
+  def test_search_two_pieces
+    pieces = [piece('o x'), piece('x x')]
+    root = create_solve_matrix(@board, pieces)
+    expected = [root.r.d, root.r.r.d.d]
+    result = search(root)
+
+    assert result
+    assert_equal expected, result
+  end
+
+  # Matrix:
+  # 1 2 3 X X T X X O
+  # x . . x x . . . .
+  # x . . x . . x . .
+  # x . . . x . . x .
+  # x . . . . . x x .
+  # . x . . . . . x x
+  # . . x . x x . . .
+  def test_search_three_pieces
+    pieces = [piece('x x'), piece('o x'), piece('x t')]
+    root = create_solve_matrix(grid("x x t\nx x o"), pieces)
+    expected = [root.r.r.d, root.r.r.r.d, root.r.d.d]
+
+    result = search(root)
+
+    assert result
+    assert_equal expected.map(&:id), result.map(&:id)
+    assert_equal 2, result[0].rotation
+    assert_equal 0, result[1].rotation
+    assert_equal 3, result[2].rotation
+  end
+
+  def test_search_no_solution
+    root = create_solve_matrix(grid('o x'), [piece('x x')])
+    assert_equal false, search(root)
+  end
+
+  # Matrix:
+  #
+  #   1 2 O X X X
+  #   x . x x . .
+  #   x . x . x .
+  #   . x . x . x
+  #   . x . . x x
+  #
+  # Piece covered: 1, second row
+  #
+  #   2 X X
+  #   x x x
+  #
+  def test_cover
+    root = create_solve_matrix(@board, [piece('o x'), piece('x x')])
+    col = root.r
+    row = col.d.d
+
+    cover(row)
+
+    assert_equal root.r, col.r
+    assert_equal root,   col.r.l
+    # check the 4o column header
+    assert_equal root.r.d.r.u, col.d.r.r.u
+
+    assert_equal [1, 1, 1], walk(root, skip: 1).map(&:size)
+
+    solution_matrix = <<~MATRIX.chomp
+      2 X X
+      x x x
+    MATRIX
+
+    assert_equal solution_matrix, print_matrix(root)
+  end
+
+  # Matrix:
+  #
+  #   1 2 O X X X
+  #   x . x x . .
+  #   x . x . x .
+  #   . x . x . x
+  #   . x . . x x
+  #
+  def test_uncover
+    root = create_solve_matrix(@board, [piece('o x'), piece('x x')])
+    col = root.r
+    row = col.d.d
+
+    cover(row)
+    uncover(row)
+
+    assert_equal root.r, col
+    assert_equal col.r.l, col
+    # check the 4o column header
+    assert_equal root.r.r.d.r.u, col.d.r.r
+
+    assert_equal [2, 2, 2, 2, 2, 2], walk(root, skip: 1).map(&:size)
+
     solution_matrix = <<~MATRIX.chomp
       1 2 O X X X
       x . x x . .
@@ -42,51 +154,5 @@ class SolverTest < Minitest::Test
     MATRIX
 
     assert_equal solution_matrix, print_matrix(root)
-  end
-
-  def test_search_single_piece
-    root = create_solve_matrix(new_grid('o x'), [new_grid('o x')])
-    assert_equal [[root[:r], 0]], search(root)[:result]
-  end
-
-  def test_search_two_pieces
-    pieces = [new_grid('o x'), new_grid('t x')]
-    root = create_solve_matrix(new_grid("o x\nt x"), pieces)
-    expected = [
-      [root[:r],     0],
-      [root[:r][:r], 0]
-    ]
-    result = search(root)[:result]
-    pretty = ->((node, index)) { [node.inspect, index] }
-
-    assert_equal expected.map(&pretty), result.map(&pretty)
-  end
-
-  def test_search_no_solution
-    root = create_solve_matrix(new_grid('o x'), [new_grid('x x')])
-    assert_equal [], search(root)[:result]
-  end
-
-  # matrix:
-  #   el4 is uncovered with el1
-  #
-  #     el1    el4
-  #      |      |
-  #   > el2 <> el3 <
-  #
-  def test_uncover
-    # @todo use a "create_solve_matrix" and "cover" to setup this test
-    el1 = Node.new
-    el2 = Node.new(u: el1, d: el1)
-    el3 = Node.new
-    el4 = Node.new(l: el1, r: el1)
-    link(el2, el3)
-    link(el4, el3, :u, :d)
-    uncover(el4)
-
-    assert_equal el1[:r].object_id, el4.object_id
-    assert_equal el1[:l].object_id, el4.object_id
-    assert_equal el1[:u].object_id, el2.object_id
-    assert_equal el1[:d].object_id, el2.object_id
   end
 end
