@@ -2,6 +2,17 @@ require 'delegate'
 require 'grid'
 
 class Printer
+  # Map between the 2x2 piece ids to the box-drawing character
+  # Each key tells how many different pieces are present in the
+  # 2x2 group, where:
+  #
+  #   - '000' is the same piece in the 2x2
+  #   - '001' the fourth piece is different
+  #   - '120' the first and second piece are different
+  #   - '123' all pieces are different
+  #
+  # Box-drawing character reference:
+  #   https://en.wikipedia.org/wiki/Box-drawing_character#Unicode
   SEPARATOR_MAP = {
     '000' => ' ',
     '001' => "\u250c",
@@ -35,6 +46,8 @@ class Printer
   end
 
   class BoardDecorator < SimpleDelegator
+    # Given a piece, gets nearby pieces to the 2x2 group
+    # north-west, north, west and center (itself)
     def nearby(row, column)
       {
         nw: cell(row - 1, column - 1),
@@ -48,18 +61,24 @@ class Printer
       CellDecorator.new(super(*args))
     end
 
+    # crossroads is the middle intersection of 4 pieces
+    # in a 2x2 group
     def crossroads(row)
       Array.new(width + 1) do |column|
         nearby(row, column).values_at(:nw, :n, :w, :c)
       end
     end
 
+    # horizontal intersection is calculated between the piece and
+    # a piece above it
     def horizontal_intersecs(row)
       Array.new(width) do |column|
         nearby(row, column).values_at(:n, :n, :c, :c)
       end
     end
 
+    # vertical intersection is calculated between the piece and
+    # a piece at left it
     def vertical_intersecs(row)
       Array.new(width + 1) do |column|
         nearby(row, column).values_at(:w, :c, :w, :c)
