@@ -97,12 +97,14 @@ module DancingLinks
     p = skip ? ref[dir] : ref
     return [] if skip && p == ref
 
-    [].tap do |y|
+    [].tap do |acc|
       loop do
-        y << p
+        acc << p
         p = p[dir]
         break if p == ref
       end
+
+      acc.each { |node| yield node } if block_given?
     end
   end
 
@@ -119,7 +121,7 @@ module DancingLinks
     buf.push(cols.map { |e| e.name.upcase })
 
     cols.select(&:piece).each do |col|
-      walk(col, dir: :d, skip: 1).each do |row|
+      walk(col, dir: :d, skip: 1) do |row|
         el_cols = walk(row).map(&:column)
         # @todo keep track of the column number on matrix, so we can this "include?" check
         #       eg:
@@ -138,7 +140,7 @@ module DancingLinks
     col = walk(root, skip: 1).min_by(&:size)
 
     # walk through all rows in the column, trying to cover them
-    walk(col, dir: :d, skip: 1).each do |row|
+    walk(col, dir: :d, skip: 1) do |row|
       result.push row
       cover(row)
 
@@ -157,14 +159,14 @@ module DancingLinks
   # When covering a column we need to remove the reference of its left
   # an right columns and also remove all rows for the piece
   def cover(row)
-    walk(row).each do |node|
+    walk(row) do |node|
       col = node.column
       col.l.r = col.r
       col.r.l = col.l
 
-      walk(col, dir: :d, skip: 1).each do |row2|
+      walk(col, dir: :d, skip: 1) do |row2|
         row2.column.size -= 1
-        walk(row2, skip: 1).each do |el|
+        walk(row2, skip: 1) do |el|
           el.column.size -= 1
           el.u.d = el.d
           el.d.u = el.u
@@ -173,15 +175,23 @@ module DancingLinks
     end
   end
 
+  # Do the opposite of "cover"
+  # It reconnects each rows and each piece column
   def uncover(row)
-    walk(row).each do |node|
+    walk(row) do |node|
       col = node.column
-      walk(col, dir: :d, skip: 1).each do |row2|
+      walk(col, dir: :d, skip: 1) do |row2|
         # @todo these conditions may not be needed
-        row2.column.size += 1 if col.l.r != col || # increment board columns when it wasn't uncovered
-                                 col.piece         # increment piece columns always
-        walk(row2).each do |el|
-          el.column.size += 1 if el.u.d != el # increment board column if they aren't uncovered
+        # increment board columns when it wasn't uncovered
+        row2.column.size += 1 if col.l.r != col
+        # increment piece columns always
+        row2.column.size += 1 if col.piece
+
+        walk(row2) do |el|
+          # increment board column if they aren't uncovered
+          # @todo when it's already uncovered?
+          el.column.size += 1 if el.u.d != el
+
           el.u.d = el
           el.d.u = el
         end
@@ -247,6 +257,7 @@ module DancingLinks
     end
 
     def id
+      # @todo create an id store
       object_id.to_s(16)[-4..-1]
     end
   end
