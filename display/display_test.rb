@@ -19,6 +19,7 @@
 # ruby png lib for code reference:
 #  * https://github.com/wvanbergen/chunky_png/blob/master/lib/chunky_png/chunk.rb
 require 'minitest/autorun'
+require 'byebug'
 
 class Display
   def self.sample_data
@@ -86,31 +87,7 @@ class Display
   end
 end
 
-class Gif
-  def self.read
-    File.open('./sheet.gif') do |f|
-      # discard header
-      _header = f.read(6)
-
-      logical_screen_descriptor = f.read(7)
-      width, height, packed_field, background_color_index = logical_screen_descriptor.unpack('SSCC')
-      color_table_size = (packed_field & 0b111) + 1
-      # puts width, height, color_table_size, background_color_index
-
-      color_table = f.read(3 * 2**color_table_size)
-      color_table_hex = color_table.unpack('H2' * 3 * 2**color_table_size)
-      puts color_table_hex.join(', ')
-    end
-  end
-end
-
-
 class DisplayTest < Minitest::Test
-  def test_print2
-    Gif.read
-    assert false
-  end
-
   def test_print
     result = Display.print.map { |i| i.map { |j| format('%.4b', j) } }
     assert false
