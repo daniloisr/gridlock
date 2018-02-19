@@ -39,7 +39,6 @@ class Display
     ]
   end
 
-
   def self.print(idx = 0)
     width = 2
     height = 3
@@ -109,5 +108,3 @@ class DisplayTest < Minitest::Test
     end
   end
 end
-
-# vim :let $MT_NO_PLUGINS = 1

@@ -21,32 +21,42 @@ class Gif
       @width, @height, packed_field = logical_screen_descriptor.unpack('SSC')
 
       # skip color table
-      # I don't think I'll need the collor table, I'll map the colors internaly based on each entity state
       color_table_size = (packed_field & 0b111) + 1
+      # @todo use color table to output the correct values, ie 0 for white and 1 for black
       _color_table = f.read(3 * 2**color_table_size)
-      # color_table_hex = color_table.unpack('H2' * 3 * 2**color_table_size)
-      # puts color_table_hex.join(', ')
 
       # skip image descriptor
       _image_descriptor = f.read(10)
 
-      @image_data =
+      raw_image_data =
         [].tap do |buf|
-          # discart first byte: LZW minimum code size
-          # byte = f.getbyte
-          while (byte = f.getbyte) != 0
+          loop do
+            byte = f.getbyte
+            break if byte == 0
             buf << byte
           end
         end
+
+      @image_data = LZW.decompress(raw_image_data)
     end
+  end
+
+  def bin_data
+    entity_width = 8
+
+    @image_data
+      .each_slice(entity_width)
+      .map(&:join)
+      .map { |str| str.to_i(2) }
   end
 end
 
 class LZW
   # http://www.matthewflickinger.com/lab/whatsinagif/lzw_image_data.asp
+  # @todo improve this temporary code
   def self.decompress(data)
     tsize = data.shift
-    bytes_in_block = data.shift
+    _bytes_in_block = data.shift
     current_code_size = tsize + 1
     table = Array.new(2**tsize) { |i| [i, [i]] }.to_h
     end_of_information = 2**tsize + 1
@@ -55,13 +65,14 @@ class LZW
     code = bit_from_stream(data, current_code_size, current_code_size)
     last_code = code
     index_stream = [table[code]]
-    bit_index = current_code_size*2
+    bit_index = current_code_size * 2
     code_stream = [code]
 
     code = bit_from_stream(data, bit_index, current_code_size)
-    while code && code != end_of_information && bit_index < data.size*8
+    while code && code != end_of_information && bit_index < data.size * 8
       code_stream << code
-      if table.has_key?(code)
+
+      if table.key?(code)
         index_stream << table[code]
         k = table[code].first
         table[table_new_index] = table[last_code] + [k]
@@ -86,7 +97,6 @@ class LZW
   end
 
   # data is a array of bytes
-  # bit_index is t
   def self.bit_from_stream(data, bit_index, size)
     # using bitwise operations
     # i, mod = bit_index.divmod(8)
@@ -99,6 +109,9 @@ class LZW
 
     # using unpack/pack
     i, offset = bit_index.divmod(8)
+
+    # this .reverse is hacky due the way that values are store inside bytes
+    # TODO: use bitwise operations instead of "pack" methods
     data[i, 2].reverse.pack('C*').unpack1('B16')[-offset - size, size]&.to_i(2)
   end
 end
@@ -113,7 +126,8 @@ class GifTest < Minitest::Test
   end
 
   def test_image_data
-    assert_equal <<~bin.chomp, LZW.decompress(@gif.image_data).each_slice(@gif.width).map(&:join).join("\n")
+    result = @gif.image_data.each_slice(@gif.width).map(&:join).join("\n")
+    assert_equal <<~BIN.chomp, result
       100001111100111100000011
       001100110000001100000011
       100001111100111100000011
@@ -124,7 +138,7 @@ class GifTest < Minitest::Test
       011110111111111111111111
       011110111111111111111111
       000000111111111111111111
-    bin
+    BIN
   end
 end
 
