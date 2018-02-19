@@ -13,7 +13,7 @@ class Gif
   # www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp
   # http://devdocs.io/ruby~2.5/string#method-i-unpack
   def read_file(fname)
-    File.open('./sheet.gif') do |f|
+    File.open(fname) do |f|
       # skip header
       _header = f.read(6)
 
@@ -118,7 +118,7 @@ end
 
 class GifTest < Minitest::Test
   def setup
-    @gif = Gif.new('./sheet.gif')
+    @gif = Gif.new(File.join(File.dirname(__FILE__), 'sheet.gif'))
   end
 
   def test_image_dimensions
