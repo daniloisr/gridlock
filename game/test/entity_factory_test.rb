@@ -1,29 +1,29 @@
-require 'minitest/autorun'
-require 'byebug'
+require 'entity'
+require 'entity_factory'
 
 module Game
-  class EntityFactory
-    def initialize(bin, entity_width, entity_height)
-      @bin = bin
-      @entity_width = entity_width
-      @entity_height = entity_height
-    end
-
-    def entities
-      # bin_dimension = 2
-
-      @bin
-    end
-  end
-
   class EntityFactoryTest < Minitest::Test
+    def test_extract_entity
+      bin = [
+        0b10000111, 0b11001111, 0b00000011,
+        0b00110011, 0b00000011, 0b00000011,
+        0b10000111, 0b11001111, 0b00000011,
+        0b11111111, 0b11111111, 0b11111111
+      ]
+      factory = EntityFactory.new(bin, 4, 2)
+      entities = factory.entities
+      puts 'printing...'
+      puts Entity.new(entities)
+      puts 'end'
+    end
+
     def test_entity_factory
-      bin = <<~BIN.each_slice(8).map(&:join).map { |str| str.to_i(2) }
-        100001111100111100000011
-        001100110000001100000011
-        100001111100111100000011
-        111111111111111111111111
-      BIN
+      bin = [
+        0b10000111, 0b11001111, 0b00000011,
+        0b00110011, 0b00000011, 0b00000011,
+        0b10000111, 0b11001111, 0b00000011,
+        0b11111111, 0b11111111, 0b11111111
+      ]
       factory = EntityFactory.new(bin, 4, 2)
       entities = factory.entities
 

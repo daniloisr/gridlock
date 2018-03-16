@@ -1,0 +1,13 @@
+require 'rake/testtask'
+require 'rubygems'
+require 'bundler/setup'
+
+Bundler.require(:default, :test)
+
+task default: :test
+
+Rake::TestTask.new do |t|
+  t.test_files = ['test/entity_test.rb']
+  t.verbose = true
+end
+
