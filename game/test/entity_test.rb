@@ -1,4 +1,4 @@
-require 'entity'
+require_relative '../lib/entity'
 
 module Game
   class EntityTest < Minitest::Test

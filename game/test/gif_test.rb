@@ -1,6 +1,8 @@
 require 'byebug'
 require 'minitest/autorun'
 
+require_relative '../lib/gif.rb'
+
 class GifTest < Minitest::Test
   def setup
     @gif = Gif.new(File.join(File.dirname(__FILE__), 'sheet.gif'))
